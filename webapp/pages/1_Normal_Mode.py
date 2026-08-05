@@ -65,10 +65,35 @@ st.markdown("""
     background:#1a1d2e; border:1px dashed #2a2d3e; border-radius:16px;
     padding:4rem 2rem; text-align:center; color:#8892b0; margin-top: 1rem;
 }
+
+@media (max-width: 900px) {
+    .block-container { padding-left: 1rem; padding-right: 1rem; }
+    .panel-title { font-size: .72rem; }
+    .par-card { padding: 1.2rem; margin-bottom: 1rem; }
+    .par-big { font-size: 3rem; }
+    .wpill, .dli-card, .welcome-card { padding: 1rem; margin-bottom: 1rem; }
+    .wpill-val { font-size: 1.2rem; }
+    .dli-val { font-size: 1.6rem; }
+    .dli-lbl, .dli-card table td { font-size: .78rem; }
+    section[data-testid="stHorizontalBlock"] { gap: 1rem !important; }
+    div[data-testid="column"] > div:first-child { min-width: 100% !important; }
+}
+@media (max-width: 640px) {
+    .block-container { padding-top: 1rem; }
+    .par-card { padding: 1rem; }
+    .par-big { font-size: 2.6rem; }
+    .wpill { padding:.45rem .55rem; }
+    .wpill-val { font-size: 1.1rem; }
+    .dli-card { padding: .9rem; }
+    .dli-val { font-size: 1.4rem; }
+    .result-card { padding: 1rem; margin-bottom: 1rem; }
+    .panel-title { margin-bottom: .5rem; }
+    .wpill, .dli-card, .welcome-card { margin-bottom: 1rem; }
+    div[data-testid="column"] > div:first-child { min-width: 100% !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session state ─────────────────────────────────────────────────────────────
 if "normal_result" not in st.session_state:
     st.session_state.normal_result = None
 

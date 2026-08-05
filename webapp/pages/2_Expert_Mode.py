@@ -58,10 +58,30 @@ st.markdown("""
     background:#1a1d2e; border:1px dashed #2a2d3e; border-radius:16px;
     padding:4rem 2rem; text-align:center; color:#8892b0;
 }
+
+@media (max-width: 900px) {
+    .block-container { padding-left: 1rem; padding-right: 1rem; }
+    .panel-title { font-size: .72rem; }
+    .result-card { padding: 1.2rem; margin-bottom: 1rem; }
+    .big-num { font-size: 2.6rem; }
+    .unit, .cap-lbl, .sec-hdr { font-size: .78rem; }
+    .step-card { min-height: auto; padding: 1.2rem; margin-bottom: 1rem; }
+    section[data-testid="stHorizontalBlock"] { gap: 1rem !important; }
+    div[data-testid="column"] > div:first-child { min-width: 100% !important; }
+}
+@media (max-width: 640px) {
+    .block-container { padding-top: 1rem; }
+    .panel-title { margin-bottom: .5rem; }
+    .result-card { padding: 1rem; margin-bottom: 1rem; }
+    .big-num { font-size: 2.2rem; }
+    .unit, .cap-lbl, .sec-hdr { font-size: .75rem; }
+    .welcome-card { padding: 2.5rem 1.2rem; margin-bottom: 1rem; }
+    div[data-testid="column"] > div:first-child { min-width: 100% !important; }
+    section[data-testid="stHorizontalBlock"] { gap: 1rem !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session state ─────────────────────────────────────────────────────────────
 if "expert_result" not in st.session_state:
     st.session_state.expert_result = None
 
