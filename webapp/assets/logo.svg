@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="140" height="140">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1d2e"/>
+      <stop offset="100%" stop-color="#0f1117"/>
+    </radialGradient>
+    <radialGradient id="sunGrad" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#ffe066"/>
+      <stop offset="100%" stop-color="#e67e22"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softglow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer ring -->
+  <circle cx="110" cy="110" r="107" fill="url(#bgGrad)" stroke="#2ecc71" stroke-width="3"/>
+
+  <!-- Inner subtle ring -->
+  <circle cx="110" cy="110" r="100" fill="none" stroke="#2ecc71" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Sun ambient glow -->
+  <circle cx="110" cy="82" r="52" fill="#f39c12" opacity="0.08"/>
+
+  <!-- Sun rays (8 rays) -->
+  <g transform="translate(110,82)" filter="url(#glow)" stroke="#f7c948" stroke-linecap="round">
+    <line x1="0"    y1="-46" x2="0"    y2="-60" stroke-width="3"/>
+    <line x1="32.5" y1="-32.5" x2="42.4" y2="-42.4" stroke-width="2.5"/>
+    <line x1="46"   y1="0"  x2="60"   y2="0"  stroke-width="3"/>
+    <line x1="32.5" y1="32.5"  x2="42.4" y2="42.4"  stroke-width="2.5"/>
+    <line x1="0"    y1="46"  x2="0"    y2="60"  stroke-width="3"/>
+    <line x1="-32.5" y1="32.5" x2="-42.4" y2="42.4" stroke-width="2.5"/>
+    <line x1="-46"  y1="0"  x2="-60"  y2="0"  stroke-width="3"/>
+    <line x1="-32.5" y1="-32.5" x2="-42.4" y2="-42.4" stroke-width="2.5"/>
+  </g>
+
+  <!-- Sun body -->
+  <circle cx="110" cy="82" r="30" fill="url(#sunGrad)" filter="url(#softglow)"/>
+  <circle cx="110" cy="82" r="24" fill="#ffe066" opacity="0.9"/>
+
+  <!-- Horizon / ground line -->
+  <line x1="22" y1="145" x2="198" y2="145" stroke="#2ecc71" stroke-width="1.5" opacity="0.5" stroke-dasharray="5,4"/>
+
+  <!-- Solar panel left (small) -->
+  <g opacity="0.55" stroke="#f39c12" stroke-width="1.3" fill="none">
+    <rect x="28" y="148" width="32" height="13" rx="1"/>
+    <line x1="44" y1="148" x2="44" y2="161"/>
+    <line x1="28" y1="154" x2="60" y2="154"/>
+  </g>
+
+  <!-- Solar panel right (small) -->
+  <g opacity="0.55" stroke="#f39c12" stroke-width="1.3" fill="none">
+    <rect x="160" y="148" width="32" height="13" rx="1"/>
+    <line x1="176" y1="148" x2="176" y2="161"/>
+    <line x1="160" y1="154" x2="192" y2="154"/>
+  </g>
+
+  <!-- Plant stem -->
+  <line x1="110" y1="145" x2="110" y2="120" stroke="#27ae60" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Left leaf -->
+  <path d="M110,128 Q90,118 82,103 Q98,110 110,128" fill="#27ae60" filter="url(#glow)"/>
+
+  <!-- Right leaf -->
+  <path d="M110,128 Q130,118 138,103 Q122,110 110,128" fill="#2ecc71" filter="url(#glow)"/>
+
+  <!-- Top sprout leaves -->
+  <path d="M110,120 Q102,113 100,105 Q107,108 110,120" fill="#52d68a" opacity="0.8"/>
+  <path d="M110,120 Q118,113 120,105 Q113,108 110,120" fill="#52d68a" opacity="0.8"/>
+
+  <!-- PAR text -->
+  <text x="110" y="178"
+        text-anchor="middle"
+        font-family="'Segoe UI',Arial,sans-serif"
+        font-weight="900"
+        font-size="26"
+        fill="#ffffff"
+        letter-spacing="5"
+        filter="url(#glow)">PAR</text>
+
+  <!-- PREDICTOR text -->
+  <text x="110" y="196"
+        text-anchor="middle"
+        font-family="'Segoe UI',Arial,sans-serif"
+        font-weight="400"
+        font-size="10"
+        fill="#2ecc71"
+        letter-spacing="3.5">PREDICTOR</text>
+</svg>
