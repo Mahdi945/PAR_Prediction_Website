@@ -1,5 +1,5 @@
 # PAR Predictor – Web Application Dependencies
-# Install with: pip install -r requirements.txt
+# Install with: pip install -r requirements_web.txt
 
 streamlit>=1.32.0
 pandas>=2.0.0
