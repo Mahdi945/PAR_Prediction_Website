@@ -185,7 +185,7 @@ col_a, col_b = st.columns(2, gap="large")
 
 with col_a:
     st.markdown("""
-    <a href="/Normal_Mode" target="_self" class="mode-link">
+    <a href="Normal_Mode" target="_self" class="mode-link">
       <div class="mode-card mode-card-green">
         <div class="mode-icon">🌱</div>
         <div class="mode-title">Normal Mode</div>
@@ -202,7 +202,7 @@ with col_a:
 
 with col_b:
     st.markdown("""
-    <a href="/Expert_Mode" target="_self" class="mode-link">
+    <a href="Expert_Mode" target="_self" class="mode-link">
       <div class="mode-card mode-card-orange">
         <div class="mode-icon">⚙️</div>
         <div class="mode-title">Expert Mode</div>
