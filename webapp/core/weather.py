@@ -83,6 +83,10 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
     resp.raise_for_status()
     data = resp.json()
 
+    # Robust time matching — pure Python datetime, no pandas version dependency.
+    # Open-Meteo time strings are always "YYYY-MM-DDTHH:MM" (hourly, UTC-based).
+    time_strs = data["hourly"]["time"]   # e.g. ["2026-08-04T00:00", ...]
+
     # Fast path: exact hour match
     target_str = target_naive.strftime(_fmt)
     if target_str in time_strs:

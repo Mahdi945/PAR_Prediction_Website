@@ -86,6 +86,56 @@ st.markdown("""
 if "expert_result" not in st.session_state:
     st.session_state.expert_result = None
 
+# ensure expert inputs persist between reruns
+for key, value in {
+    "e_lat":  51.6872,
+    "e_lon":  14.4143,
+    "e_alt":  84.0,
+    "e_tz":   "Europe/Berlin",
+    "e_date": date.today(),
+    "e_time": dtime(datetime.now().hour, 0),
+    "e_ghi":  450.0,
+    "e_temp": 18.0,
+    "e_rh":   65.0,
+    "e_dwp":  8.0,
+    "e_ws":   3.0,
+    "e_wd":   180.0,
+    "e_prec": 0.0,
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+if "expert_autofetch_temp" in st.session_state:
+    fetched = st.session_state.pop("expert_autofetch_temp")
+    st.session_state.e_ghi  = fetched.get("GHI_RC_01", st.session_state.e_ghi)
+    st.session_state.e_temp = fetched.get("Temp_WS",    st.session_state.e_temp)
+    st.session_state.e_rh   = fetched.get("RH_WS",      st.session_state.e_rh)
+    st.session_state.e_dwp  = fetched.get("DWP_WS",     st.session_state.e_dwp)
+    st.session_state.e_ws   = fetched.get("WS_WS",      st.session_state.e_ws)
+    st.session_state.e_wd   = fetched.get("WD_WS",      st.session_state.e_wd)
+    st.session_state.e_prec = fetched.get("PREC_INT_WS", st.session_state.e_prec)
+
+
+def _apply_expert_autofetch():
+    try:
+        dt_sel = datetime.combine(
+            st.session_state.e_date,
+            st.session_state.e_time,
+        )
+        fetched = fetch_weather(
+            st.session_state.e_lat,
+            st.session_state.e_lon,
+            dt_sel,
+        )
+        st.session_state.expert_autofetch_temp = fetched
+        st.session_state.expert_autofetch_status = (
+            "success", "✅ Weather auto-fetched successfully."
+        )
+    except Exception as e:
+        st.session_state.expert_autofetch_status = (
+            "error", f"❌ Open-Meteo fetch failed: {e}"
+        )
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _gauge(value, max_val, color, title):
     fig = go.Figure(go.Indicator(
@@ -215,7 +265,14 @@ with left:
             "🌦️  Auto-fetch weather from Open-Meteo",
             use_container_width=True,
             type="secondary",
+            on_click=_apply_expert_autofetch,
         )
+        if "expert_autofetch_status" in st.session_state:
+            status_type, status_msg = st.session_state.expert_autofetch_status
+            if status_type == "success":
+                st.success(status_msg)
+            else:
+                st.error(status_msg)
         predict_btn = st.button("⚙️  Predict PAR",
                                 use_container_width=True, type="primary")
 
@@ -231,22 +288,8 @@ with left:
         st.caption("Right-click Google Maps → copy lat, lon.")
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  HANDLE AUTOFETCH + PREDICT
+#  HANDLE PREDICT
 # ─────────────────────────────────────────────────────────────────────────────
-if fetch_weather_btn:
-    try:
-        fetched = fetch_weather(lat, lon, dt_sel)
-        ghi = fetched.get("GHI_RC_01", ghi)
-        temp = fetched.get("Temp_WS", temp)
-        rh   = fetched.get("RH_WS",   rh)
-        dwp  = fetched.get("DWP_WS",  dwp)
-        ws   = fetched.get("WS_WS",   ws)
-        wd   = fetched.get("WD_WS",   wd)
-        prec = fetched.get("PREC_INT_WS", prec)
-        st.success("✅ Weather auto-fetched successfully.")
-    except Exception as e:
-        st.error(f"❌ Open-Meteo fetch failed: {e}")
-
 if predict_btn:
     weather = {
         "GHI_RC_01":   ghi,
