@@ -45,6 +45,14 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
         GHI_RC_01, Temp_WS, RH_WS, DWP_WS, WS_WS, WD_WS,
         PREC_INT_WS, _timezone
     """
+    # Convert input dt to a naive Python datetime, floored to the hour
+    _fmt = "%Y-%m-%dT%H:%M"
+    if isinstance(dt, datetime):
+        target_naive = dt.replace(minute=0, second=0, microsecond=0,
+                                  tzinfo=None)
+    else:
+        target_naive = datetime.strptime(str(dt)[:16], _fmt)
+
     def _build_params(use_archive: bool) -> dict:
         params = {
             "latitude":  round(lat, 4),
@@ -74,18 +82,6 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
     resp = requests.get(url, params=params, timeout=_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
-
-    # Robust time matching — pure Python datetime, no pandas version dependency.
-    # Open-Meteo time strings are always "YYYY-MM-DDTHH:MM" (hourly, UTC-based).
-    time_strs = data["hourly"]["time"]   # e.g. ["2026-08-04T00:00", ...]
-    _fmt = "%Y-%m-%dT%H:%M"
-
-    # Convert input dt to a naive Python datetime, floored to the hour
-    if isinstance(dt, datetime):
-        target_naive = dt.replace(minute=0, second=0, microsecond=0,
-                                  tzinfo=None)
-    else:
-        target_naive = datetime.strptime(str(dt)[:16], _fmt)
 
     # Fast path: exact hour match
     target_str = target_naive.strftime(_fmt)
