@@ -20,6 +20,7 @@ from core.features import compute_features
 from core.predict  import (
     predict_par, mccree_estimate, get_feature_importance, is_model_available
 )
+from core.weather  import fetch_weather
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -210,6 +211,11 @@ with left:
                                    0.1, key="e_prec")
 
         st.markdown("<br>", unsafe_allow_html=True)
+        fetch_weather_btn = st.button(
+            "🌦️  Auto-fetch weather from Open-Meteo",
+            use_container_width=True,
+            type="secondary",
+        )
         predict_btn = st.button("⚙️  Predict PAR",
                                 use_container_width=True, type="primary")
 
@@ -225,8 +231,22 @@ with left:
         st.caption("Right-click Google Maps → copy lat, lon.")
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  HANDLE PREDICT
+#  HANDLE AUTOFETCH + PREDICT
 # ─────────────────────────────────────────────────────────────────────────────
+if fetch_weather_btn:
+    try:
+        fetched = fetch_weather(lat, lon, dt_sel)
+        ghi = fetched.get("GHI_RC_01", ghi)
+        temp = fetched.get("Temp_WS", temp)
+        rh   = fetched.get("RH_WS",   rh)
+        dwp  = fetched.get("DWP_WS",  dwp)
+        ws   = fetched.get("WS_WS",   ws)
+        wd   = fetched.get("WD_WS",   wd)
+        prec = fetched.get("PREC_INT_WS", prec)
+        st.success("✅ Weather auto-fetched successfully.")
+    except Exception as e:
+        st.error(f"❌ Open-Meteo fetch failed: {e}")
+
 if predict_btn:
     weather = {
         "GHI_RC_01":   ghi,

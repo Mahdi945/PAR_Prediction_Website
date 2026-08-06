@@ -205,9 +205,9 @@ if predict_btn:
     with progress.container():
         with st.spinner("⏳ Fetching weather from Open-Meteo…"):
             try:
-                weather    = fetch_weather(lat, lon, dt_sel)
-                forecast_df = fetch_forecast(lat, lon)
-                tz_str     = weather.get("_timezone", "UTC")
+                weather     = fetch_weather(lat, lon, dt_sel)
+                forecast_df = fetch_forecast(lat, lon, dt_sel)
+                tz_str      = weather.get("_timezone", "UTC")
             except Exception as e:
                 with right:
                     st.error(f"❌ Weather API error: {e}")
