@@ -50,8 +50,9 @@ st.markdown("""
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 pg = st.navigation([
-    st.Page("home.py",                  title="Home",        icon="🏠"),
-    st.Page("pages/1_Normal_Mode.py",   title="Normal Mode", icon="🌱"),
-    st.Page("pages/2_Expert_Mode.py",   title="Expert Mode", icon="⚙️"),
+    st.Page("home.py",                  title="Home",            icon="🏠"),
+    st.Page("pages/1_Normal_Mode.py",   title="Normal Mode",    icon="🌱"),
+    st.Page("pages/2_Expert_Mode.py",   title="Expert Mode",    icon="⚙️"),
+    st.Page("pages/3_Dataset_Upload.py", title="Dataset Upload", icon="📊"),
 ])
 pg.run()

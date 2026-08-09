@@ -181,8 +181,12 @@ def geocode_city(name: str, max_results: int = 5) -> list[dict]:
         "language": "en",
         "format":   "json",
     }
-    resp = requests.get(_GEO_URL, params=params, timeout=_TIMEOUT)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(_GEO_URL, params=params, timeout=_TIMEOUT)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException:
+        return []
+
     results = resp.json().get("results", [])
 
     out = []
@@ -194,6 +198,7 @@ def geocode_city(name: str, max_results: int = 5) -> list[dict]:
             "latitude":  r.get("latitude", 0.0),
             "longitude": r.get("longitude", 0.0),
             "elevation": r.get("elevation", 0.0),
+            "timezone":  r.get("timezone", "UTC"),
             "display":   f"{r.get('name','')}, {r.get('admin1','')} – {r.get('country','')}",
         })
     return out

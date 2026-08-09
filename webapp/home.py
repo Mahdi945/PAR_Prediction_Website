@@ -35,26 +35,28 @@ st.markdown("""
     background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%);
     border-radius: 18px; padding: 2.2rem 1.8rem;
     text-align: center;
-    height: 260px;                   /* fixed equal height for both cards */
-    min-height: 260px;
-    max-height: 260px;
+    height: 360px;
+    width: 100%;
+    max-width: 360px;
     display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
+    justify-content: space-between; align-items: center;
     transition: transform .2s, box-shadow .2s;
     box-sizing: border-box;
+    overflow: hidden;
+    margin: 0 auto;
 }
 .mode-card-green  { border: 2px solid #2ecc71; }
 .mode-card-orange { border: 2px solid #f39c12; }
 .mode-card:hover  { transform: translateY(-3px);
                     box-shadow: 0 12px 32px rgba(46,204,113,.25); }
-a.mode-link       { text-decoration: none !important; display: block; }
+a.mode-link       { text-decoration: none !important; display: block; width: 100%; height: 100%; }
 a.mode-link:hover .mode-card-green  { box-shadow: 0 12px 32px rgba(46,204,113,.35); transform: translateY(-3px); }
 a.mode-link:hover .mode-card-orange { box-shadow: 0 12px 32px rgba(243,156,18,.35); transform: translateY(-3px); }
 .mode-icon  { font-size: 3.2rem; margin-bottom: .8rem; flex-shrink: 0; }
 .mode-title { font-size: 1.5rem; font-weight: 800; color: #fff;
               margin: .4rem 0; flex-shrink: 0; }
 .mode-desc  { color: #8892b0; font-size: .9rem; line-height: 1.65;
-              flex-shrink: 0; }
+              flex: 1; overflow-wrap: anywhere; }
 
 /* Force Streamlit columns that hold mode cards to equal height */
 div[data-testid="column"] > div:first-child {
@@ -123,6 +125,9 @@ div[data-testid="column"] > div:first-child {
     section[data-testid="stHorizontalBlock"] { gap: 1rem !important; }
     a.mode-link { display: block; margin-bottom: 1rem; }
 }
+@media (max-width: 1200px) {
+    .mode-card { max-width: 320px; }
+}
 @media (max-width: 640px) {
     .hero-title { font-size: 1.85rem; }
     .hero-sub { font-size: .9rem; }
@@ -181,7 +186,7 @@ if not is_model_available():
 #  MODE SELECTION CARDS  (entire card is clickable — no separate button)
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("### Choose your mode")
-col_a, col_b = st.columns(2, gap="large")
+col_a, col_b, col_c = st.columns(3, gap="large")
 
 with col_a:
     st.markdown("""
@@ -213,6 +218,23 @@ with col_b:
             Enter your own sensor readings for maximum accuracy.<br>
             Inspect feature importance, McCree comparison,<br>
             and every intermediate computed value.
+        </div>
+      </div>
+    </a>
+    """, unsafe_allow_html=True)
+
+with col_c:
+    st.markdown("""
+    <a href="Dataset_Upload" target="_self" class="mode-link">
+      <div class="mode-card" style="border: 2px solid #3498db;">
+        <div class="mode-icon">📊</div>
+        <div class="mode-title">Dataset Upload</div>
+        <div style="margin:.3rem 0 .7rem 0">
+          <strong style="color:#3498db">Batch analysis &nbsp;·&nbsp; Full benchmark</strong>
+        </div>
+        <div class="mode-desc">
+            Upload a full time-series dataset with sensor readings and location.<br>
+            Clean it, resample it, and compare model predictions to a baseline.
         </div>
       </div>
     </a>
