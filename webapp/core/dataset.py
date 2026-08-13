@@ -146,35 +146,6 @@ def prepare_dataset_for_prediction(
     work_df[timestamp_col] = pd.to_datetime(work_df[timestamp_col], errors="coerce")
     work_df = work_df.dropna(subset=[timestamp_col]).sort_values(timestamp_col).reset_index(drop=True)
 
-    # Replace common sentinel values used in raw exports with NaN so further
-    # numeric cleaning (interpolation/median) treats them as missing.
-    sentinels = [-9999, -999, 9999, 99999, -99999]
-    num_cols = work_df.select_dtypes(include=["number"]).columns.tolist()
-    if num_cols:
-        work_df[num_cols] = work_df[num_cols].replace(sentinels, np.nan)
-
-    # Collapse exact duplicate timestamps by taking the median of numeric
-    # columns and the first value for non-numeric columns. This mirrors the
-    # notebook behaviour that avoids duplicated rows at identical timestamps.
-    if work_df.duplicated(subset=[timestamp_col]).any():
-        def _agg_series(s):
-            if np.issubdtype(s.dtype, np.number):
-                return s.median()
-            return s.iloc[0]
-        work_df = work_df.groupby(timestamp_col, dropna=False).agg(_agg_series).reset_index()
-
-    # Clamp obviously invalid sensor values to physically plausible ranges
-    # to avoid extreme spikes affecting interpolation.
-    clamp_map = {
-        "Temp_WS": (-60.0, 60.0),
-        "RH_WS": (0.0, 100.0),
-        "WS_WS": (0.0, 80.0),
-        "GHI": (-10.0, 1600.0),
-    }
-    for c, (mn, mx) in clamp_map.items():
-        if c in work_df.columns:
-            work_df[c] = pd.to_numeric(work_df[c], errors="coerce").clip(lower=mn, upper=mx)
-
     clean_df = work_df.copy()
     clean_df[latitude_col]  = _safe_numeric(clean_df[latitude_col])
     clean_df[longitude_col] = _safe_numeric(clean_df[longitude_col])
@@ -220,40 +191,63 @@ def prepare_dataset_for_prediction(
 
     raw_rows = len(clean_df)
 
-    # ── Physical validity ranges (mirror notebook rules) ─────────────────────
-    _emit_progress(progress_callback, 12, "Removing out-of-range sensor values")
-    VALIDITY_RANGES = {
-        'Temp_WS':     (-40.0, 60.0),
-        'Temp_RC_01':  (-40.0, 80.0),
-        'Temp_RC':     (-40.0, 80.0),
-        'RH_WS':       (0.0, 100.0),
-        'WD_WS':       (0.0, 360.0),
-        'WS_WS':       (0.0, 60.0),
-        'DWP_WS':      (-40.0, 40.0),
-        'PREC_WS':     (0.0, 200.0),
-        'PREC_DIFF_WS':(0.0, 50.0),
-        'PREC_INT_WS': (0.0, 4.0),
-        'PAR_PAR':     (0.0, 3000.0),
-        'GHI_RC_01':   (0.0, 1362.0),
-    }
-    for col, (lo, hi) in VALIDITY_RANGES.items():
-        if col not in clean_df.columns:
-            continue
-        before = len(clean_df)
-        mask = clean_df[col].notna() & ((clean_df[col] < lo) | (clean_df[col] > hi))
-        if mask.any():
-            clean_df = clean_df[~mask].copy()
+    # ── Physical outlier removal (mirrors notebook 2) ─────────────────────────
+    _emit_progress(progress_callback, 12, "Removing outliers")
+    ghi_vals_raw = clean_df["GHI_RC_01"]
+    # Keep rows where GHI is in the physically plausible range
+    ghi_ok = ~(ghi_vals_raw < -10) & ~(ghi_vals_raw > 1600)
+    clean_df = clean_df[ghi_ok].copy()
 
-    # ── Daytime filter (notebook rule): remove rows with low GHI (<= 30 W/m²)
-    _emit_progress(progress_callback, 18, "Filtering to daytime rows (GHI > 30 W/m²)")
-    if 'GHI_RC_01' in clean_df.columns:
-        before_dt = len(clean_df)
-        clean_df = clean_df[clean_df['GHI_RC_01'] > 30].copy()
-        _emit_progress(progress_callback, 20, f"Daytime filter kept {len(clean_df):,} rows (from {before_dt:,})")
-    else:
-        _emit_progress(progress_callback, 20, "Daytime filter skipped (GHI column missing)")
+    if resolved_target:
+        par_ok = ~(clean_df["target_par"] < -5) & ~(clean_df["target_par"] > 3000)
+        clean_df = clean_df[par_ok].copy()
 
-    # Sort and continue
+    # ── Daytime filter (mirrors notebook 5 stratification) ───────────────────
+    _emit_progress(progress_callback, 18, "Filtering to daytime rows")
+    try:
+        lat_med = float(clean_df["lat"].median())
+        lon_med = float(clean_df["lon"].median())
+        alt_med = float(clean_df["alt"].median())
+
+        ts_raw = pd.to_datetime(clean_df[timestamp_col])
+        if ts_raw.dt.tz is None:
+            ts_tz = ts_raw.dt.tz_localize(timezone_str, ambiguous="NaT", nonexistent="shift_forward")
+        else:
+            ts_tz = ts_raw.dt.tz_convert(timezone_str)
+
+        # FIX: tz_localize with ambiguous="NaT" can introduce NaT values that
+        # pvlib.get_solarposition cannot handle and that used to blow up the
+        # whole try-block (silently keeping day+night data). Drop them first
+        # and keep the two arrays aligned by index.
+        valid_ts_mask = ts_tz.notna()
+        if not valid_ts_mask.all():
+            clean_df = clean_df.loc[valid_ts_mask].reset_index(drop=True)
+            ts_tz = ts_tz.loc[valid_ts_mask].reset_index(drop=True)
+
+        loc_pv    = pvlib.location.Location(latitude=lat_med, longitude=lon_med, altitude=alt_med, tz=timezone_str)
+        solar_pos = loc_pv.get_solarposition(pd.DatetimeIndex(ts_tz))
+        elev_arr  = np.asarray(solar_pos["elevation"])
+
+        if len(elev_arr) != len(clean_df):
+            raise ValueError(
+                f"Solar position length ({len(elev_arr)}) does not match "
+                f"cleaned dataframe length ({len(clean_df)})."
+            )
+
+        # Keep rows where solar elevation > 0 (same threshold as training notebooks)
+        clean_df = clean_df[elev_arr > 0].copy()
+        _emit_progress(progress_callback, 20, f"Daytime filter kept {len(clean_df):,} rows")
+    except Exception as exc:
+        # FIX: never silently swallow this. If daytime filtering fails, the
+        # resulting dataset (day+night mixed) is *not* comparable to the
+        # notebooks and metrics will look artificially bad. Surface it.
+        _emit_progress(progress_callback, 20, f"⚠️ Daytime filter failed, dataset unfiltered: {exc}")
+        raise RuntimeError(
+            "Daytime (solar elevation) filtering failed, which would silently mix "
+            "night-time rows into training/evaluation and make results incomparable "
+            f"to the notebooks. Original error: {exc}"
+        ) from exc
+
     clean_df = clean_df.sort_values(by=timestamp_col).reset_index(drop=True)
 
     # ── Time-interpolation on cleaned daytime data ────────────────────────────
@@ -351,16 +345,6 @@ def prepare_dataset_for_prediction(
         "is_day":              is_daytime_arr,
         "target_par":          target_vals,
     })
-    # ── Attach engineered feature columns so the exported dataset is ready for model use
-    try:
-        feat_df_reset = feat_df.reset_index(drop=True)
-        for col in feat_df_reset.columns:
-            # avoid overwriting core columns
-            if col not in results_df.columns:
-                results_df[col] = feat_df_reset[col].values
-    except Exception:
-        # If feature attachment fails, continue returning the base results_df
-        pass
     if results_df.empty:
         _emit_progress(progress_callback, 100, "Completed (no rows after processing)")
         return {
