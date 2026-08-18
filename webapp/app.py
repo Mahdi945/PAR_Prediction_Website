@@ -48,16 +48,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Language selector (shown above the sidebar navigation) ─────────────────
-lang_options = ["Français", "English", "Deutsch", "العربية"]
-selected_language = st.sidebar.selectbox(
-    "Language / Sprache / اللغة",
-    lang_options,
-    index=0,
-    key="app_language",
-)
-st.session_state["selected_language"] = selected_language
-
 # ── Navigation ────────────────────────────────────────────────────────────────
 pg = st.navigation([
     st.Page("home.py",                  title="Home",            icon="🏠"),
