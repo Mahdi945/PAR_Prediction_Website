@@ -156,18 +156,58 @@ def prepare_dataset_for_prediction(
     clean_df["lon"] = clean_df[longitude_col].fillna(clean_df[longitude_col].median())
     clean_df["alt"] = clean_df[altitude_col].fillna(clean_df[altitude_col].median()) if altitude_col else 0.0
 
-    # ── Map sensor columns ────────────────────────────────────────────────────
+    # ── Map sensor columns with generalized names used across stations ─────
+    # Many uploaded datasets use variants like "ghi_rc" instead of "GHI_RC_01".
+    # We accept case-insensitive matches and common synonyms to avoid a hard stop.
     default_mapping = {
-        "GHI_RC_01":   _pick_column(clean_df, ["ghi", "GHI", "GHI_RC_01", "irradiance"], default="GHI"),
-        "Temp_WS":     _pick_column(clean_df, ["temp", "temperature", "Temp_WS", "temp_ws"], default="Temp"),
-        "RH_WS":       _pick_column(clean_df, ["rh", "humidity", "RH_WS", "rh_ws"], default="RH"),
-        "DWP_WS":      _pick_column(clean_df, ["dwp", "dewpoint", "DWP_WS", "dwp_ws"], default="DWP"),
-        "WS_WS":       _pick_column(clean_df, ["ws", "windspeed", "wind_speed", "WS_WS", "ws_ws"], default="WS"),
-        "WD_WS":       _pick_column(clean_df, ["wd", "winddir", "wind_dir", "wind_direction", "WD_WS", "wd_ws"], default="WD"),
-        "PREC_INT_WS": _pick_column(clean_df, ["prec", "precip", "precipitation", "PREC_INT_WS", "prec_int_ws"], default="PREC"),
-        # ── FIX: these two were missing entirely -> silently zero-filled at prediction time ──
-        "PREC_WS":     _pick_column(clean_df, ["prec_ws", "PREC_WS", "precip_total", "rain_total"], default="PREC_WS"),
-        "Temp_RC_01":  _pick_column(clean_df, ["temp_rc_01", "Temp_RC_01", "temp_rc", "panel_temp", "cell_temp"], default="Temp_RC_01"),
+        "GHI_RC_01": _pick_column(
+            clean_df,
+            [
+                "ghi", "GHI", "GHI_RC_01", "GHI_RC", "ghi_rc_01", "ghi_rc",
+                "irradiance", "shortwave_radiation", "sw_radiation"
+            ],
+            default="GHI",
+        ),
+        "Temp_WS": _pick_column(
+            clean_df,
+            ["temp", "temperature", "Temp_WS", "temp_ws", "air_temperature", "temp_air"],
+            default="Temp",
+        ),
+        "RH_WS": _pick_column(
+            clean_df,
+            ["rh", "humidity", "RH_WS", "rh_ws", "relative_humidity", "humidity_rel"],
+            default="RH",
+        ),
+        "DWP_WS": _pick_column(
+            clean_df,
+            ["dwp", "dewpoint", "DWP_WS", "dwp_ws", "dew_point", "dewpoint_c"],
+            default="DWP",
+        ),
+        "WS_WS": _pick_column(
+            clean_df,
+            ["ws", "windspeed", "wind_speed", "WS_WS", "ws_ws", "wind_speed_10m"],
+            default="WS",
+        ),
+        "WD_WS": _pick_column(
+            clean_df,
+            ["wd", "winddir", "wind_dir", "wind_direction", "WD_WS", "wd_ws"],
+            default="WD",
+        ),
+        "PREC_INT_WS": _pick_column(
+            clean_df,
+            ["prec", "precip", "precipitation", "PREC_INT_WS", "prec_int_ws", "rain", "rain_mm"],
+            default="PREC",
+        ),
+        "PREC_WS": _pick_column(
+            clean_df,
+            ["prec_ws", "PREC_WS", "precip_total", "rain_total", "precipitation_total"],
+            default="PREC_WS",
+        ),
+        "Temp_RC_01": _pick_column(
+            clean_df,
+            ["temp_rc_01", "Temp_RC_01", "temp_rc", "panel_temp", "cell_temp", "module_temp"],
+            default="Temp_RC_01",
+        ),
     }
     if sensor_mapping:
         default_mapping.update(sensor_mapping)
@@ -190,63 +230,57 @@ def prepare_dataset_for_prediction(
         clean_df["target_par"] = np.nan
 
     raw_rows = len(clean_df)
+    # ── Sentinel replacement + physical validity ranges (align with notebooks)
+    _emit_progress(progress_callback, 12, "Replacing sentinels and removing out-of-range values")
 
-    # ── Physical outlier removal (mirrors notebook 2) ─────────────────────────
-    _emit_progress(progress_callback, 12, "Removing outliers")
-    ghi_vals_raw = clean_df["GHI_RC_01"]
-    # Keep rows where GHI is in the physically plausible range
-    ghi_ok = ~(ghi_vals_raw < -10) & ~(ghi_vals_raw > 1600)
-    clean_df = clean_df[ghi_ok].copy()
+    # Sentinels used in notebooks
+    SENTINEL_VALUES = [-99999, 99999, 3276.7, -3276.8]
+    for sv in SENTINEL_VALUES:
+        clean_df.replace(sv, np.nan, inplace=True)
 
+    # Validity ranges from the notebooks
+    VALIDITY_RANGES = {
+        'Temp_WS': (-40, 60),
+        'Temp_RC_01': (-40, 80),
+        'Temp_RC': (-40, 80),
+        'RH_WS': (0, 100),
+        'WD_WS': (0, 360),
+        'WS_WS': (0, 60),
+        'DWP_WS': (-40, 40),
+        'PREC_WS': (0, 200),
+        'PREC_DIFF_WS': (0, 50),
+        'PREC_INT_WS': (0, 4),
+        'PAR_PAR': (0, 3000),
+        'GHI_RC_01': (0, 1362),
+    }
+
+    # Drop rows violating any validity range (if column exists)
+    for col, (lo, hi) in VALIDITY_RANGES.items():
+        if col not in clean_df.columns:
+            continue
+        before = len(clean_df)
+        mask = clean_df[col].notna() & ((clean_df[col] < lo) | (clean_df[col] > hi))
+        if mask.any():
+            clean_df = clean_df[~mask].copy()
+
+    # If target present, additionally constrain target PAR
     if resolved_target:
-        par_ok = ~(clean_df["target_par"] < -5) & ~(clean_df["target_par"] > 3000)
+        par_ok = ~(clean_df["target_par"] < 0) & ~(clean_df["target_par"] > 3000)
         clean_df = clean_df[par_ok].copy()
 
-    # ── Daytime filter (mirrors notebook 5 stratification) ───────────────────
-    _emit_progress(progress_callback, 18, "Filtering to daytime rows")
-    try:
-        lat_med = float(clean_df["lat"].median())
-        lon_med = float(clean_df["lon"].median())
-        alt_med = float(clean_df["alt"].median())
+    # ── Night-time / twilight filter — match notebook: remove GHI <= 30 W/m²
+    _emit_progress(progress_callback, 18, "Filtering twilight/night rows (GHI <= 30 W/m²)")
+    if "GHI_RC_01" in clean_df.columns:
+        before = len(clean_df)
+        clean_df = clean_df[clean_df["GHI_RC_01"] > 30].copy()
+        _emit_progress(progress_callback, 20, f"GHI filter kept {len(clean_df):,} rows (removed {before - len(clean_df):,})")
 
-        ts_raw = pd.to_datetime(clean_df[timestamp_col])
-        if ts_raw.dt.tz is None:
-            ts_tz = ts_raw.dt.tz_localize(timezone_str, ambiguous="NaT", nonexistent="shift_forward")
-        else:
-            ts_tz = ts_raw.dt.tz_convert(timezone_str)
-
-        # FIX: tz_localize with ambiguous="NaT" can introduce NaT values that
-        # pvlib.get_solarposition cannot handle and that used to blow up the
-        # whole try-block (silently keeping day+night data). Drop them first
-        # and keep the two arrays aligned by index.
-        valid_ts_mask = ts_tz.notna()
-        if not valid_ts_mask.all():
-            clean_df = clean_df.loc[valid_ts_mask].reset_index(drop=True)
-            ts_tz = ts_tz.loc[valid_ts_mask].reset_index(drop=True)
-
-        loc_pv    = pvlib.location.Location(latitude=lat_med, longitude=lon_med, altitude=alt_med, tz=timezone_str)
-        solar_pos = loc_pv.get_solarposition(pd.DatetimeIndex(ts_tz))
-        elev_arr  = np.asarray(solar_pos["elevation"])
-
-        if len(elev_arr) != len(clean_df):
-            raise ValueError(
-                f"Solar position length ({len(elev_arr)}) does not match "
-                f"cleaned dataframe length ({len(clean_df)})."
-            )
-
-        # Keep rows where solar elevation > 0 (same threshold as training notebooks)
-        clean_df = clean_df[elev_arr > 0].copy()
-        _emit_progress(progress_callback, 20, f"Daytime filter kept {len(clean_df):,} rows")
-    except Exception as exc:
-        # FIX: never silently swallow this. If daytime filtering fails, the
-        # resulting dataset (day+night mixed) is *not* comparable to the
-        # notebooks and metrics will look artificially bad. Surface it.
-        _emit_progress(progress_callback, 20, f"⚠️ Daytime filter failed, dataset unfiltered: {exc}")
-        raise RuntimeError(
-            "Daytime (solar elevation) filtering failed, which would silently mix "
-            "night-time rows into training/evaluation and make results incomparable "
-            f"to the notebooks. Original error: {exc}"
-        ) from exc
+    # ── Remove duplicate timestamps (notebooks drop duplicates on TIMESTAMP)
+    if timestamp_col in clean_df.columns:
+        before = len(clean_df)
+        clean_df = clean_df.drop_duplicates(subset=[timestamp_col], keep='first').copy()
+        if len(clean_df) != before:
+            _emit_progress(progress_callback, 22, f"Dropped {before - len(clean_df):,} duplicate timestamps")
 
     clean_df = clean_df.sort_values(by=timestamp_col).reset_index(drop=True)
 
@@ -342,7 +376,7 @@ def prepare_dataset_for_prediction(
         "model_prediction":    all_preds,
         "baseline_prediction": baseline_preds,
         "difference":          all_preds - baseline_preds,
-        "is_day":              is_daytime_arr,
+        "is_day":              (resampled["GHI_RC_01"].values > 30),
         "target_par":          target_vals,
     })
     if results_df.empty:
