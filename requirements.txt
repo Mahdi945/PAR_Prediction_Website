@@ -1,13 +1,13 @@
 # PAR Predictor – Web Application Dependencies
 # Install with: pip install -r requirements_web.txt
 
-streamlit==1.40.2
-pandas==2.2.2
-numpy==1.26.4
-pvlib==0.11.1
-requests==2.32.3
+streamlit
+pandas
+numpy
+pvlib
+requests
 plotly
 joblib
-scikit-learn==1.5.1
-xgboost==2.0.3
-pytz==2024.1
+scikit-learn
+xgboost
+pytz
