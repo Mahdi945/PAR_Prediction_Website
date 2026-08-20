@@ -1,5 +1,5 @@
 """
-home.py  –  PAR Predictor · Home / Landing Page
+home.py  –  ParPredict · Home / Landing Page
 """
 
 import base64
@@ -11,7 +11,7 @@ from core.predict import is_model_available
 _logo_path = Path(__file__).parent / "assets" / "logo.svg"
 _logo = _logo_path.read_text(encoding="utf-8")
 _logo_data = base64.b64encode(_logo.encode("utf-8")).decode("ascii")
-_logo_img = f'<img src="data:image/svg+xml;base64,{_logo_data}" alt="PAR Predictor logo" width="170" height="170" style="display:block;margin:0 auto;" />'
+_logo_img = f'<img src="data:image/svg+xml;base64,{_logo_data}" alt="ParPredict logo" width="170" height="170" style="display:block;margin:0 auto;" />'
 
 # ── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
@@ -155,7 +155,7 @@ with hero_col:
     )
     st.markdown("""
     <div style="text-align:center">
-        <h1 class="hero-title">PAR&nbsp;<span>Predictor</span></h1>
+        <h1 class="hero-title">Par<span>Predict</span></h1>
         <p class="hero-sub">
             Nowcasting Photosynthetically Active Radiation for Agrivoltaic Systems<br>
             <small style="color:#5a6070">
@@ -387,7 +387,7 @@ for col, (icon, title, desc) in zip(cols, steps):
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="footer-wrap">
-    PAR Predictor &nbsp;·&nbsp; Hochschule Anhalt &nbsp;·&nbsp;
+    ParPredict &nbsp;·&nbsp; Hochschule Anhalt &nbsp;·&nbsp;
     Data Science Master Program 2026 &nbsp;&nbsp;·&nbsp;&nbsp;
     <strong>Developers:</strong>
     Tristan Kühn &nbsp;·&nbsp; Ethan Miska &nbsp;·&nbsp;

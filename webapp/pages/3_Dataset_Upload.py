@@ -11,16 +11,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import inspect
-import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as _st_components
 import plotly.graph_objects as go
-
-
-# Toggle to show/hide the cleaned CSV download button (useful for temporary disabling)
-SHOW_CLEANED_DOWNLOAD_BUTTON = False
 
 
 def infer_city_from_filename(filename: str) -> str | None:
@@ -229,14 +224,7 @@ with st.container(border=True):
         inferred_alt = None
         if inferred_city:
             st.caption(f"Inferred city from filename: {inferred_city}")
-            try:
-                candidates = geocode_city(inferred_city)
-            except requests.exceptions.RequestException as exc:
-                st.warning(
-                    "Location inference failed: network timeout or API error. "
-                    "Please enter latitude, longitude, and altitude manually."
-                )
-                candidates = []
+            candidates = geocode_city(inferred_city)
             if candidates:
                 inferred_location = candidates[0]
                 inferred_lat = inferred_location.get("latitude")
@@ -271,7 +259,7 @@ with st.container(border=True):
                 help="Adjust the altitude used for prediction.",
             )
 
-        resample_period = st.selectbox("Resample to", options=["30s", "1min", "5min", "10min", "30min", "1H"], index=1)
+        resample_period = st.selectbox("Resample to", options=["1min", "5min", "10min", "30min", "1H"], index=0)
 
         if st.button("🚀 Run cleaning, feature engineering and prediction", type="primary", use_container_width=True):
             with st.spinner("Processing the uploaded dataset... This may take a few moments."):
@@ -331,25 +319,6 @@ with st.container(border=True):
             result = st.session_state.dataset_result
             metrics = result.get("metrics", {})
             res_df = result.get("results")
-
-            # ── Download cleaned & resampled CSV (same base name as uploaded file) ──
-            # Temporarily hidden via SHOW_CLEANED_DOWNLOAD_BUTTON flag
-            if res_df is not None and not res_df.empty and SHOW_CLEANED_DOWNLOAD_BUTTON:
-                try:
-                    csv_str = res_df.to_csv(index=False)
-                    default_name = (
-                        Path(uploaded_file.name).stem + "_cleaned_resampled.csv"
-                        if uploaded_file is not None else "cleaned_resampled.csv"
-                    )
-                    st.download_button(
-                        label="⬇️ Download cleaned & resampled CSV",
-                        data=csv_str,
-                        file_name=default_name,
-                        mime="text/csv",
-                        use_container_width=False,
-                    )
-                except Exception as exc:
-                    st.warning(f"Could not prepare download: {exc}")
 
             if res_df is not None and not res_df.empty:
                 # ── Row counts ────────────────────────────────────────────────
@@ -463,30 +432,19 @@ with st.container(border=True):
                     st.markdown('<div class="panel-title">✨ Feature Importance</div>', unsafe_allow_html=True)
                     fi_df = feature_importance.reset_index()
                     fi_df.columns = ["Feature", "Importance"]
-                    # Plot horizontal bar chart for top 20 features
-                    top20 = fi_df.sort_values("Importance", ascending=True).tail(20)
-                    fig_fi = go.Figure(
-                        go.Bar(
-                            x=top20["Importance"],
-                            y=top20["Feature"],
-                            orientation='h',
-                            marker_color='#2ecc71',
-                            hovertemplate='%{y}: %{x:.4f}<extra></extra>'
-                        )
-                    )
-                    fig_fi.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(26,29,46,0.7)",
-                        height=420,
-                        margin=dict(l=180, r=10, t=10, b=10),
-                        xaxis=dict(title="Importance"),
-                        yaxis=dict(automargin=True),
-                        font=dict(color="#e8eaf6"),
-                    )
-                    st.plotly_chart(fig_fi, use_container_width=True)
-                    # (Note removed per user request)
+                    st.dataframe(fi_df.head(20), use_container_width=True, height=320)
 
-                # Preview table removed per request — charts and metrics remain
+                # ── Preview ───────────────────────────────────────────────────
+                st.markdown('<div class="panel-title">📋 Preview of Processed Data</div>', unsafe_allow_html=True)
+                preview = res_df.head(20).copy()
+                preview = preview.rename(columns={
+                    "timestamp": "Timestamp",
+                    "model_prediction": "Model PAR",
+                    "baseline_prediction": "Baseline PAR",
+                    "difference": "Δ Model−Baseline",
+                    "target_par": "Observed PAR",
+                })
+                st.dataframe(preview, use_container_width=True, height=320)
             else:
                 st.info("No processed rows were generated. Please verify your columns and timestamp values.")
     else:

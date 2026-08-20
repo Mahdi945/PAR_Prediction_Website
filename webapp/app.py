@@ -1,5 +1,5 @@
 """
-app.py  -  PAR Predictor - Navigation Router
+app.py  -  ParPredict - Navigation Router
 Entry point. Run with:  python -m streamlit run app.py
 """
 
@@ -7,7 +7,7 @@ import streamlit as st
 
 # ── Global page config ────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="PAR Predictor",
+    page_title="ParPredict",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -16,9 +16,9 @@ st.set_page_config(
 # ── Sidebar: logo + title pinned above nav links via CSS ::before ─────────────
 st.markdown("""
 <style>
-/* Pin PAR Predictor branding at the very top of the sidebar */
+/* Pin ParPredict branding at the very top of the sidebar */
 [data-testid="stSidebarNav"]::before {
-    content: "🌱  PAR Predictor";
+    content: "🌱  ParPredict";
     display: block;
     font-size: 1.25rem;
     font-weight: 900;

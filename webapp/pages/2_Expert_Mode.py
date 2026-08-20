@@ -24,7 +24,7 @@ from core.weather  import fetch_weather
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Expert Mode · PAR Predictor",
+    page_title="Expert Mode · ParPredict",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded",

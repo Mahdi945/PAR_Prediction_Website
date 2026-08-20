@@ -14,14 +14,13 @@ from __future__ import annotations
 import numpy as np
 import requests
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, timedelta
 
 
 # ── API endpoints ────────────────────────────────────────────────────────────
-_WEATHER_URL   = "https://api.open-meteo.com/v1/forecast"
-_ARCHIVE_URL   = "https://archive-api.open-meteo.com/v1/archive"
-_GEO_URL       = "https://geocoding-api.open-meteo.com/v1/search"
-_TIMEOUT       = 12  # seconds
+_WEATHER_URL  = "https://api.open-meteo.com/v1/forecast"
+_GEO_URL      = "https://geocoding-api.open-meteo.com/v1/search"
+_TIMEOUT      = 12  # seconds
 
 # Open-Meteo hourly variable names we need
 _HOURLY_VARS = [
@@ -45,47 +44,29 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
         GHI_RC_01, Temp_WS, RH_WS, DWP_WS, WS_WS, WD_WS,
         PREC_INT_WS, _timezone
     """
-    # Convert input dt to a naive Python datetime, floored to the hour
-    _fmt = "%Y-%m-%dT%H:%M"
-    if isinstance(dt, datetime):
-        target_naive = dt.replace(minute=0, second=0, microsecond=0,
-                                  tzinfo=None)
-    else:
-        target_naive = datetime.strptime(str(dt)[:16], _fmt)
+    params = {
+        "latitude":     round(lat, 4),
+        "longitude":    round(lon, 4),
+        "hourly":       ",".join(_HOURLY_VARS),
+        "timezone":     "auto",
+        "forecast_days": 1,
+    }
 
-    def _build_params(use_archive: bool) -> dict:
-        params = {
-            "latitude":  round(lat, 4),
-            "longitude": round(lon, 4),
-            "hourly":    ",".join(_HOURLY_VARS),
-            "timezone":  "auto",
-        }
-
-        if use_archive:
-            date_str = target_naive.date().isoformat()
-            params["start_date"] = date_str
-            params["end_date"]   = date_str
-        else:
-            days_ahead = max(1, (target_naive.date() - date.today()).days + 1)
-            if days_ahead > 16:
-                raise ValueError(
-                    "Open-Meteo forecast supports up to 16 days ahead. "
-                    "Please choose a nearer date."
-                )
-            params["forecast_days"] = days_ahead
-
-        return params
-
-    use_archive = target_naive.date() < date.today()
-    url = _ARCHIVE_URL if use_archive else _WEATHER_URL
-    params = _build_params(use_archive)
-    resp = requests.get(url, params=params, timeout=_TIMEOUT)
+    resp = requests.get(_WEATHER_URL, params=params, timeout=_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
 
     # Robust time matching — pure Python datetime, no pandas version dependency.
     # Open-Meteo time strings are always "YYYY-MM-DDTHH:MM" (hourly, UTC-based).
     time_strs = data["hourly"]["time"]   # e.g. ["2026-08-04T00:00", ...]
+    _fmt = "%Y-%m-%dT%H:%M"
+
+    # Convert input dt to a naive Python datetime, floored to the hour
+    if isinstance(dt, datetime):
+        target_naive = dt.replace(minute=0, second=0, microsecond=0,
+                                  tzinfo=None)
+    else:
+        target_naive = datetime.strptime(str(dt)[:16], _fmt)
 
     # Fast path: exact hour match
     target_str = target_naive.strftime(_fmt)
@@ -122,51 +103,28 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
     }
 
 
-def fetch_forecast(lat: float, lon: float, dt: datetime | None = None) -> pd.DataFrame:
+def fetch_forecast(lat: float, lon: float) -> pd.DataFrame:
     """
-    Return hourly irradiance for the requested date as a DataFrame with columns:
+    Return today's hourly forecast as a DataFrame with columns:
         time, GHI, temperature, precipitation
     """
-    if dt is None:
-        dt = datetime.now()
-
-    target_date = dt.date()
-    use_archive = target_date < date.today()
-
     params = {
-        "latitude":  round(lat, 4),
-        "longitude": round(lon, 4),
-        "hourly":    "shortwave_radiation,temperature_2m,precipitation",
-        "timezone":  "auto",
+        "latitude":     round(lat, 4),
+        "longitude":    round(lon, 4),
+        "hourly":       "shortwave_radiation,temperature_2m,precipitation",
+        "timezone":     "auto",
+        "forecast_days": 1,
     }
-
-    if use_archive:
-        date_str = target_date.isoformat()
-        params["start_date"] = date_str
-        params["end_date"]   = date_str
-        url = _ARCHIVE_URL
-    else:
-        days_ahead = max(1, (target_date - date.today()).days + 1)
-        if days_ahead > 16:
-            raise ValueError(
-                "Open-Meteo forecast supports up to 16 days ahead. "
-                "Please choose a nearer date."
-            )
-        params["forecast_days"] = days_ahead
-        url = _WEATHER_URL
-
-    resp = requests.get(url, params=params, timeout=_TIMEOUT)
+    resp = requests.get(_WEATHER_URL, params=params, timeout=_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
 
     df = pd.DataFrame({
-        "time":          pd.to_datetime(data["hourly"]["time"]),
-        "GHI":           [max(0.0, v or 0.0) for v in data["hourly"]["shortwave_radiation"]],
-        "temperature":   data["hourly"]["temperature_2m"],
+        "time":        pd.to_datetime(data["hourly"]["time"]),
+        "GHI":         [max(0.0, v or 0.0) for v in data["hourly"]["shortwave_radiation"]],
+        "temperature": data["hourly"]["temperature_2m"],
         "precipitation": data["hourly"]["precipitation"],
     })
-
-    df = df[df["time"].dt.date == target_date].reset_index(drop=True)
     return df
 
 
@@ -181,12 +139,8 @@ def geocode_city(name: str, max_results: int = 5) -> list[dict]:
         "language": "en",
         "format":   "json",
     }
-    try:
-        resp = requests.get(_GEO_URL, params=params, timeout=_TIMEOUT)
-        resp.raise_for_status()
-    except requests.exceptions.RequestException:
-        return []
-
+    resp = requests.get(_GEO_URL, params=params, timeout=_TIMEOUT)
+    resp.raise_for_status()
     results = resp.json().get("results", [])
 
     out = []
@@ -198,7 +152,6 @@ def geocode_city(name: str, max_results: int = 5) -> list[dict]:
             "latitude":  r.get("latitude", 0.0),
             "longitude": r.get("longitude", 0.0),
             "elevation": r.get("elevation", 0.0),
-            "timezone":  r.get("timezone", "UTC"),
             "display":   f"{r.get('name','')}, {r.get('admin1','')} – {r.get('country','')}",
         })
     return out

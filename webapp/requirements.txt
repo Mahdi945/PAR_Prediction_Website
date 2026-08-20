@@ -1,5 +1,5 @@
 # PAR Predictor – Web Application Dependencies
-# Install with: pip install -r requirements_web.txt
+# Install with: pip install -r requirements.txt
 # ❗ EXACT VERSIONS — do not upgrade without testing
 # These versions are compatible with Python 3.12+ and each other
 

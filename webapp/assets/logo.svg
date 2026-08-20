@@ -79,22 +79,13 @@
   <path d="M110,120 Q102,113 100,105 Q107,108 110,120" fill="#52d68a" opacity="0.8"/>
   <path d="M110,120 Q118,113 120,105 Q113,108 110,120" fill="#52d68a" opacity="0.8"/>
 
-  <!-- PAR text -->
+  <!-- ParPredict text -->
   <text x="110" y="178"
         text-anchor="middle"
         font-family="'Segoe UI',Arial,sans-serif"
         font-weight="900"
-        font-size="26"
+        font-size="22"
         fill="#ffffff"
-        letter-spacing="5"
-        filter="url(#glow)">PAR</text>
-
-  <!-- PREDICTOR text -->
-  <text x="110" y="196"
-        text-anchor="middle"
-        font-family="'Segoe UI',Arial,sans-serif"
-        font-weight="400"
-        font-size="10"
-        fill="#2ecc71"
-        letter-spacing="3.5">PREDICTOR</text>
+        letter-spacing="2.5"
+        filter="url(#glow)">ParPredict</text>
 </svg>

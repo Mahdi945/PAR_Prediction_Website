@@ -1,5 +1,5 @@
 """
-pages/1_Normal_Mode.py  –  PAR Predictor · Normal Mode
+pages/1_Normal_Mode.py  –  ParPredict · Normal Mode
 ────────────────────────────────────────────────────────
 All inputs in main page (no sidebar). Coordinates only.
 Results persist via session_state.
@@ -22,7 +22,7 @@ from core.predict  import predict_par, is_model_available
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Normal Mode · PAR Predictor",
+    page_title="Normal Mode · ParPredict",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -118,7 +118,7 @@ def crop_advice(dli):
 # ════════════════════════════════════════════════════════════════════════════════
 #  HEADER
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("# 🌱 Normal Mode — PAR Nowcasting")
+st.markdown("# 🌱 Normal Mode — ParPredict")
 st.caption("Enter coordinates · Weather auto-fetched from Open-Meteo · Predicted by XGBoost")
 st.divider()
 
