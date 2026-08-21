@@ -17,6 +17,45 @@ import pvlib
 from datetime import datetime
 
 
+def compute_features_batch(
+    df: pd.DataFrame,
+    tz_str: str = "UTC",
+) -> tuple[pd.DataFrame, np.ndarray]:
+    """Compatibility wrapper for batch feature extraction.
+
+    The upload pipeline expects a vectorized helper that returns a feature table
+    and a boolean daytime mask for all rows. This implementation loops through
+    the rows and reuses the single-row feature builder from compute_features().
+    """
+    rows = []
+    is_day = []
+
+    for _, row in df.iterrows():
+        weather = {
+            "GHI_RC_01": float(row.get("GHI_RC_01", 0.0) or 0.0),
+            "Temp_WS": float(row.get("Temp_WS", 15.0) or 15.0),
+            "RH_WS": float(row.get("RH_WS", 60.0) or 60.0),
+            "DWP_WS": float(row.get("DWP_WS", 10.0) or 10.0),
+            "WS_WS": float(row.get("WS_WS", 2.0) or 2.0),
+            "WD_WS": float(row.get("WD_WS", 180.0) or 180.0),
+            "PREC_INT_WS": float(row.get("PREC_INT_WS", 0.0) or 0.0),
+        }
+
+        ts = row.get("timestamp")
+        feat_df, daytime = compute_features(
+            lat=float(row.get("lat", 0.0) or 0.0),
+            lon=float(row.get("lon", 0.0) or 0.0),
+            alt=float(row.get("alt", 0.0) or 0.0),
+            dt_str=ts,
+            weather=weather,
+            tz_str=tz_str,
+        )
+        rows.append(feat_df.iloc[0])
+        is_day.append(daytime)
+
+    return pd.DataFrame(rows), np.asarray(is_day, dtype=bool)
+
+
 def compute_features(
     lat: float,
     lon: float,
