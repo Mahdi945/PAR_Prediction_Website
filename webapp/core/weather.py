@@ -103,10 +103,18 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
     }
 
 
-def fetch_forecast(lat: float, lon: float) -> pd.DataFrame:
+def fetch_forecast(
+    lat: float,
+    lon: float,
+    dt: datetime | None = None,
+) -> pd.DataFrame:
     """
     Return today's hourly forecast as a DataFrame with columns:
-        time, GHI, temperature, precipitation
+        time, GHI, temperature, precipitation.
+
+    The optional *dt* argument is accepted for API compatibility with
+    fetch_weather() and normal-mode page calls, but the full daily forecast
+    is still returned so the chart and DLI summary remain intact.
     """
     params = {
         "latitude":     round(lat, 4),
@@ -120,9 +128,9 @@ def fetch_forecast(lat: float, lon: float) -> pd.DataFrame:
     data = resp.json()
 
     df = pd.DataFrame({
-        "time":        pd.to_datetime(data["hourly"]["time"]),
-        "GHI":         [max(0.0, v or 0.0) for v in data["hourly"]["shortwave_radiation"]],
-        "temperature": data["hourly"]["temperature_2m"],
+        "time":         pd.to_datetime(data["hourly"]["time"]),
+        "GHI":          [max(0.0, v or 0.0) for v in data["hourly"]["shortwave_radiation"]],
+        "temperature":  data["hourly"]["temperature_2m"],
         "precipitation": data["hourly"]["precipitation"],
     })
     return df
