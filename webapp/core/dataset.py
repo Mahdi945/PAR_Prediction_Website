@@ -8,14 +8,21 @@ from __future__ import annotations
 
 from typing import Any, Callable
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 import pvlib
 
-from .features import compute_features, compute_features_batch
-from .predict import is_model_available, load_model, mccree_estimate, predict_par
-from .weather import fetch_weather, geocode_city
+try:
+    from .features import compute_features, compute_features_batch
+    from .predict import is_model_available, load_model, mccree_estimate, predict_par
+    from .weather import fetch_weather, geocode_city
+except ImportError:  # pragma: no cover - script-mode fallback for Streamlit Cloud
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from core.features import compute_features, compute_features_batch
+    from core.predict import is_model_available, load_model, mccree_estimate, predict_par
+    from core.weather import fetch_weather, geocode_city
 
 
 def _pick_column(df: pd.DataFrame, candidates: list[str], default: str | None = None) -> str | None:
