@@ -11,6 +11,8 @@ Provides:
 
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import requests
 import pandas as pd
@@ -20,7 +22,55 @@ from datetime import datetime, timedelta
 # ── API endpoints ────────────────────────────────────────────────────────────
 _WEATHER_URL  = "https://api.open-meteo.com/v1/forecast"
 _GEO_URL      = "https://geocoding-api.open-meteo.com/v1/search"
-_TIMEOUT      = 12  # seconds
+_TIMEOUT      = 12  # seconds per attempt
+_RETRIES      = 3   # transient timeouts are common on shared hosting
+_BACKOFF      = 1.5 # seconds, doubled after each failed attempt
+
+
+class WeatherServiceError(RuntimeError):
+    """Open-Meteo could not be reached, or returned something unusable.
+
+    Every network call in this module raises this instead of letting a raw
+    requests exception escape — an unhandled ReadTimeout crashes the whole
+    Streamlit page with a traceback.
+    """
+
+
+def _get_json(url: str, params: dict, *, what: str, retries: int = _RETRIES) -> dict:
+    """GET JSON with retries and a clear, catchable error.
+
+    Retries only on transient failures (timeout / connection reset). An HTTP
+    error or malformed body fails immediately — retrying would not help.
+    """
+    last_exc: Exception | None = None
+
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, params=params, timeout=_TIMEOUT)
+            resp.raise_for_status()
+            return resp.json()
+
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                time.sleep(_BACKOFF * (2 ** attempt))
+
+        except requests.HTTPError as exc:
+            code = exc.response.status_code if exc.response is not None else "?"
+            raise WeatherServiceError(
+                f"{what} failed: the service replied with HTTP {code}."
+            ) from exc
+
+        except ValueError as exc:                       # body was not valid JSON
+            raise WeatherServiceError(
+                f"{what} failed: the service returned a malformed response."
+            ) from exc
+
+    raise WeatherServiceError(
+        f"{what} failed: no response after {retries} attempts "
+        f"({type(last_exc).__name__}). Check the internet connection, or enter "
+        f"the values manually."
+    ) from last_exc
 
 # Open-Meteo hourly variable names we need
 _HOURLY_VARS = [
@@ -52,9 +102,7 @@ def fetch_weather(lat: float, lon: float, dt: datetime) -> dict:
         "forecast_days": 1,
     }
 
-    resp = requests.get(_WEATHER_URL, params=params, timeout=_TIMEOUT)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_json(_WEATHER_URL, params, what="Weather fetch")
 
     # Robust time matching — pure Python datetime, no pandas version dependency.
     # Open-Meteo time strings are always "YYYY-MM-DDTHH:MM" (hourly, UTC-based).
@@ -123,9 +171,7 @@ def fetch_forecast(
         "timezone":     "auto",
         "forecast_days": 1,
     }
-    resp = requests.get(_WEATHER_URL, params=params, timeout=_TIMEOUT)
-    resp.raise_for_status()
-    data = resp.json()
+    data = _get_json(_WEATHER_URL, params, what="Forecast fetch")
 
     df = pd.DataFrame({
         "time":         pd.to_datetime(data["hourly"]["time"]),
@@ -140,16 +186,27 @@ def geocode_city(name: str, max_results: int = 5) -> list[dict]:
     """
     Search for a city by name.  Returns a list of dicts:
         {name, country, admin1, latitude, longitude, elevation}
+
+    Best-effort: returns an empty list if the lookup fails or times out, since
+    every caller offers editable coordinates as a fallback. Use
+    ``geocode_city_strict()`` when the caller needs to report the failure.
     """
+    try:
+        return geocode_city_strict(name, max_results)
+    except WeatherServiceError:
+        return []
+
+
+def geocode_city_strict(name: str, max_results: int = 5) -> list[dict]:
+    """Same as geocode_city() but raises WeatherServiceError on failure."""
     params = {
         "name":     name,
         "count":    max_results,
         "language": "en",
         "format":   "json",
     }
-    resp = requests.get(_GEO_URL, params=params, timeout=_TIMEOUT)
-    resp.raise_for_status()
-    results = resp.json().get("results", [])
+    # One retry only: this is a convenience lookup, not worth a long stall.
+    results = _get_json(_GEO_URL, params, what="City lookup", retries=2).get("results", [])
 
     out = []
     for r in results:

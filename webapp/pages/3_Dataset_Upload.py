@@ -224,7 +224,17 @@ with st.container(border=True):
         inferred_alt = None
         if inferred_city:
             st.caption(f"Inferred city from filename: {inferred_city}")
-            candidates = geocode_city(inferred_city)
+            # Best-effort convenience lookup. A network failure must never stop the
+            # upload: the coordinates below are editable and are what actually count.
+            try:
+                candidates = geocode_city(inferred_city)
+            except Exception:
+                candidates = []
+            if not candidates:
+                st.caption(
+                    "⚠️ Could not look up coordinates automatically — "
+                    "enter latitude, longitude and altitude below."
+                )
             if candidates:
                 inferred_location = candidates[0]
                 inferred_lat = inferred_location.get("latitude")
