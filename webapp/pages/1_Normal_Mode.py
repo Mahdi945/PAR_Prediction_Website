@@ -16,9 +16,10 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, date, time as dtime
 
-from core.weather  import fetch_weather, fetch_forecast
-from core.features import compute_features
-from core.predict  import predict_par, is_model_available
+from core.weather   import fetch_weather, fetch_forecast
+from core.features  import compute_features
+from core.predict   import predict_par, is_model_available
+from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -106,7 +107,8 @@ def par_category(par):
     return             "High",         "#e74c3c", "☀️"
 
 def dli_today(fc_df):
-    return round((fc_df["GHI"] * 2.06 * 3600).sum() / 1e6, 1)
+    # DLI [mol/m²/day] = Σ_hours ( PAR [µmol/m²/s] × 3600 s ) / 1e6
+    return round((fc_df["GHI"] * MCCREE_FACTOR * SECONDS_PER_HOUR).sum() / MICROMOL_PER_MOL, 1)
 
 def crop_advice(dli):
     if dli < 5:   return "🌿 Shade-tolerant crops (moss, ferns, microgreens)"
@@ -388,7 +390,7 @@ with right:
             "Today's Irradiance Forecast</div>",
             unsafe_allow_html=True,
         )
-        par_fc = (fc["GHI"] * 2.06).clip(lower=0)
+        par_fc = (fc["GHI"] * MCCREE_FACTOR).clip(lower=0)
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(

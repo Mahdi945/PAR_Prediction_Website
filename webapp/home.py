@@ -300,8 +300,8 @@ st.markdown("""
     <div class="stat-lbl">Model Accuracy</div>
   </div>
   <div class="stat-item">
-    <div class="stat-val">22</div>
-    <div class="stat-lbl">Input Features</div>
+    <div class="stat-val">15</div>
+    <div class="stat-lbl">Model Features</div>
   </div>
   <div class="stat-item">
     <div class="stat-val">1 min</div>

@@ -1,5 +1,5 @@
-# PAR Predictor – Web Application Dependencies
-# Install with: pip install -r requirements_web.txt
+# PAR Predictor — Web Application Dependencies (Streamlit Cloud installs this file)
+# Pinned, tested versions live in webapp/requirements_web.txt
 
 streamlit
 pandas

@@ -2,7 +2,7 @@
 core/features.py
 ────────────────
 Feature engineering pipeline that mirrors the training notebooks
-(4_4_feature_engineering_All_Files.ipynb).
+(4_feature_engineering_All_Files.ipynb).
 
 Main entry point:
     compute_features(lat, lon, alt, dt_str, weather, tz_str)
@@ -15,6 +15,23 @@ import numpy as np
 import pandas as pd
 import pvlib
 from datetime import datetime
+
+
+def _num(value, default: float) -> float:
+    """Coerce `value` to float, falling back to `default` only when it is
+    genuinely absent (None / NaN / unparseable).
+
+    Deliberately NOT ``float(value or default)``: in Python ``0.0 or 15.0``
+    evaluates to ``15.0``, which would silently turn a real 0 °C reading into
+    15 °C, or a north wind (0°) into a south wind (180°).
+    """
+    if value is None:
+        return float(default)
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return float(default) if not np.isfinite(v) else v
 
 
 def compute_features_batch(
@@ -32,13 +49,15 @@ def compute_features_batch(
 
     for _, row in df.iterrows():
         weather = {
-            "GHI_RC_01": float(row.get("GHI_RC_01", 0.0) or 0.0),
-            "Temp_WS": float(row.get("Temp_WS", 15.0) or 15.0),
-            "RH_WS": float(row.get("RH_WS", 60.0) or 60.0),
-            "DWP_WS": float(row.get("DWP_WS", 10.0) or 10.0),
-            "WS_WS": float(row.get("WS_WS", 2.0) or 2.0),
-            "WD_WS": float(row.get("WD_WS", 180.0) or 180.0),
-            "PREC_INT_WS": float(row.get("PREC_INT_WS", 0.0) or 0.0),
+            "GHI_RC_01": _num(row.get("GHI_RC_01"), 0.0),
+            "Temp_WS": _num(row.get("Temp_WS"), 15.0),
+            "RH_WS": _num(row.get("RH_WS"), 60.0),
+            "DWP_WS": _num(row.get("DWP_WS"), 10.0),
+            "WS_WS": _num(row.get("WS_WS"), 2.0),
+            "WD_WS": _num(row.get("WD_WS"), 180.0),
+            "PREC_INT_WS": _num(row.get("PREC_INT_WS"), 0.0),
+            "PREC_DIFF_WS": _num(row.get("PREC_DIFF_WS"), 0.0),
+            "Temp_RC_01": row.get("Temp_RC_01"),
         }
 
         ts = row.get("timestamp")
@@ -117,7 +136,7 @@ def compute_features(
         airmass = 37.9
 
     # ── 4. GHI + clearness index + DNI ─────────────────────────────────────
-    ghi = max(0.0, float(weather.get("GHI_RC_01", 0.0) or 0.0))
+    ghi = max(0.0, _num(weather.get("GHI_RC_01"), 0.0))
 
     doy       = pd.Timestamp(dt_str).dayofyear
     dni_extra = float(pvlib.irradiance.get_extra_radiation(doy))
@@ -142,16 +161,23 @@ def compute_features(
         dni = 0.0
 
     # ── 5. Raw weather scalars ──────────────────────────────────────────────
-    temp_ws   = float(weather.get("Temp_WS",     15.0) or 15.0)
-    rh_ws     = float(weather.get("RH_WS",       60.0) or 60.0)
-    dwp_ws    = float(weather.get("DWP_WS",      10.0) or 10.0)
-    ws_ws     = float(weather.get("WS_WS",        2.0) or  2.0)
-    wd_ws     = float(weather.get("WD_WS",       180.0) or 180.0)
-    prec_int  = max(0.0, float(weather.get("PREC_INT_WS", 0.0) or 0.0))
+    temp_ws   = _num(weather.get("Temp_WS"),  15.0)
+    rh_ws     = _num(weather.get("RH_WS"),    60.0)
+    dwp_ws    = _num(weather.get("DWP_WS"),   10.0)
+    ws_ws     = _num(weather.get("WS_WS"),     2.0)
+    wd_ws     = _num(weather.get("WD_WS"),   180.0)
+    prec_int  = max(0.0, _num(weather.get("PREC_INT_WS"), 0.0))
+    prec_diff = max(0.0, _num(weather.get("PREC_DIFF_WS"), prec_int))
 
     # ── 6. Reference cell temperature (NOCT approximation) ─────────────────
     # Tc = Ta + (NOCT - 20) / 800 * GHI   (NOCT ≈ 45 °C for typical c-Si cell)
-    temp_rc = temp_ws + (45.0 - 20.0) / 800.0 * ghi
+    measured_temp_rc = weather.get("Temp_RC_01")
+    try:
+        temp_rc = float(measured_temp_rc)
+        if not np.isfinite(temp_rc):
+            raise ValueError
+    except (TypeError, ValueError):
+        temp_rc = temp_ws + (45.0 - 20.0) / 800.0 * ghi
 
     # ── 7. Cyclical wind-direction encoding ─────────────────────────────────
     wind_sin = float(np.sin(2 * np.pi * wd_ws / 360.0))
@@ -173,7 +199,7 @@ def compute_features(
         "WS_WS":            ws_ws,
         "WD_WS":            wd_ws,
         "PREC_INT_WS":      prec_int,
-        "PREC_DIFF_WS":     prec_int,   # same at hourly resolution
+        "PREC_DIFF_WS":     prec_diff,
         "PREC_WS":          prec_int,
         "Temp_RC_merged":   temp_rc,
         "Temp_RC_01":       temp_rc,

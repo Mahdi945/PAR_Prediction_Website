@@ -1,5 +1,5 @@
 """
-pages/3_Dataset_Upload.py  –  PAR Predictor · Dataset Upload Mode
+pages/3_Dataset_Upload.py  –  ParPredict · Dataset Upload Mode
 ────────────────────────────────────────────────────────
 Upload a full dataset with sensor measurements and geolocation data,
 apply cleaning + feature engineering + resampling, and compare the model
@@ -127,7 +127,7 @@ def _run_processing_with_progress(call_args: dict) -> dict:
 
 
 st.set_page_config(
-    page_title="Dataset Upload · PAR Predictor",
+    page_title="Dataset Upload · ParPredict",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -259,7 +259,8 @@ with st.container(border=True):
                 help="Adjust the altitude used for prediction.",
             )
 
-        resample_period = st.selectbox("Resample to", options=["1min", "5min", "10min", "30min", "1H"], index=0)
+        st.caption("The deployed XGBoost model is trained at 1-minute resolution; this is enforced for consistent predictions.")
+        resample_period = "1min"
 
         if st.button("🚀 Run cleaning, feature engineering and prediction", type="primary", use_container_width=True):
             with st.spinner("Processing the uploaded dataset... This may take a few moments."):

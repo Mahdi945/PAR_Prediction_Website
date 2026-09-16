@@ -15,11 +15,13 @@ import pandas as pd
 import pvlib
 
 try:
+    from .constants import MCCREE_FACTOR
     from .features import compute_features, compute_features_batch
     from .predict import is_model_available, load_model, mccree_estimate, predict_par
     from .weather import fetch_weather, geocode_city
 except ImportError:  # pragma: no cover - script-mode fallback for Streamlit Cloud
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from core.constants import MCCREE_FACTOR
     from core.features import compute_features, compute_features_batch
     from core.predict import is_model_available, load_model, mccree_estimate, predict_par
     from core.weather import fetch_weather, geocode_city
@@ -205,6 +207,11 @@ def prepare_dataset_for_prediction(
             ["prec", "precip", "precipitation", "PREC_INT_WS", "prec_int_ws", "rain", "rain_mm"],
             default="PREC",
         ),
+        "PREC_DIFF_WS": _pick_column(
+            clean_df,
+            ["PREC_DIFF_WS", "prec_diff_ws", "prec_diff", "precipitation_event"],
+            default="PREC_DIFF_WS",
+        ),
         "PREC_WS": _pick_column(
             clean_df,
             ["prec_ws", "PREC_WS", "precip_total", "rain_total", "precipitation_total"],
@@ -294,7 +301,10 @@ def prepare_dataset_for_prediction(
     # ── Time-interpolation on cleaned daytime data ────────────────────────────
     _emit_progress(progress_callback, 24, "Interpolating missing sensor values")
     clean_df = clean_df.set_index(timestamp_col)
-    sensor_cols = ["GHI_RC_01", "Temp_WS", "RH_WS", "DWP_WS", "WS_WS", "WD_WS", "PREC_INT_WS", "lat", "lon", "alt"]
+    sensor_cols = [
+        "GHI_RC_01", "Temp_WS", "RH_WS", "DWP_WS", "WS_WS", "WD_WS",
+        "PREC_INT_WS", "PREC_DIFF_WS", "Temp_RC_01", "lat", "lon", "alt",
+    ]
     for col in sensor_cols:
         clean_df[col] = clean_df[col].astype(float).interpolate(method="time", limit_direction="both").fillna(clean_df[col].median())
 
@@ -324,6 +334,8 @@ def prepare_dataset_for_prediction(
             "WS_WS":       "mean",
             "WD_WS":       "mean",
             "PREC_INT_WS": "sum",
+            "PREC_DIFF_WS": "sum",
+            "Temp_RC_01":  "mean",
             "target_par":  "mean",
         })
         .reset_index()
@@ -353,7 +365,7 @@ def prepare_dataset_for_prediction(
     _emit_progress(progress_callback, 72, "Running batch model inference")
 
     ghi_vals: np.ndarray       = np.asarray(resampled["GHI_RC_01"].fillna(0.0), dtype=float)
-    baseline_preds: np.ndarray = np.maximum(0.0, ghi_vals * 2.06)
+    baseline_preds: np.ndarray = np.maximum(0.0, ghi_vals * MCCREE_FACTOR)
 
     if predict_fn is not None:
         all_preds = np.array([float(predict_fn(feat_df.iloc[[i]])) for i in range(len(feat_df))])

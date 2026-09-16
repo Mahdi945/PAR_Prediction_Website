@@ -76,7 +76,7 @@ The app opens at `http://localhost:8501`.
 
 ## Feature Engineering
 
-The feature pipeline in `core/features.py` exactly mirrors the training notebook `4_4_feature_engineering_All_Files.ipynb`.  For each prediction, 22 features are computed:
+The feature pipeline in `core/features.py` mirrors the training notebook `4_feature_engineering_All_Files.ipynb`.  For each prediction, 22 columns are computed; the model consumes the 15 listed in `data/processed/pkl_features_GradientBoosting/feature_names_all_locations.pkl` (the others are shown in the UI only). `core/predict.py` raises if any of the 15 is missing rather than filling it with zero. The columns computed are:
 
 | Group | Features | Source |
 |---|---|---|
@@ -92,7 +92,7 @@ The feature pipeline in `core/features.py` exactly mirrors the training notebook
 
 ## Model
 
-- **Type:** XGBoost Regressor (trained in `6_6_gradient_boosting_All_Files.ipynb`)
+- **Type:** XGBoost Regressor (trained in `6_model_training_All_Files.ipynb`)
 - **Target:** `PAR_PAR` [µmol/m²/s]
 - **Training data:** ~300 k rows at 1-minute resolution, 2 German agrivoltaic sites (Laubsdorf + Nebelin, 2024–2025)
 - **Performance:** R² ≈ 0.99, nRMSE ≈ 8 % (vs. McCree baseline: nRMSE ≈ 35 %)

@@ -18,6 +18,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+from .constants import MCCREE_FACTOR
+
 # ════════════════════════════════════════════════════════════════════════════════
 #  XGBEnsemble stub — must be defined BEFORE joblib.load()
 #  The training notebook defined this class in its __main__ scope.
@@ -71,13 +73,13 @@ FEATURE_NAMES_PATH = (
     / "feature_names_all_locations.pkl"
 )
 
-# ── Fallback feature list (mirrors training notebooks) ──────────────────────
+# ── Fallback feature list — the 15 features the model was trained on, in order.
+#    Must match feature_names_all_locations.pkl (written by 5_stratification_All_Files.ipynb).
 _FALLBACK_FEATURES = [
-    "GHI_RC_01", "Temp_WS", "RH_WS", "WS_WS", "DWP_WS",
-    "PREC_WS", "PREC_INT_WS", "Temp_RC_merged",
-    "zenith", "airmass", "clearness_kt",
+    "GHI_RC_01", "Temp_WS", "RH_WS", "DWP_WS", "WS_WS",
+    "PREC_INT_WS", "PREC_DIFF_WS", "Temp_RC_merged",
+    "zenith", "elevation", "airmass", "clearness_kt", "dni",
     "wind_sin", "wind_cos",
-    "is_raining", "GHI_rolling_5min", "temp_diff", "dew_depression",
 ]
 
 # ── Module-level cache ───────────────────────────────────────────────────────
@@ -123,13 +125,14 @@ def _load_joblib_robust(path):
                         lambda y_pred, dtrain, _n=_name: (_n, 0.0))
 
             else:
-                # Generic fallback: callable that returns None
-                setattr(_main, missing,
-                        type(missing, (), {
-                            "__init__": lambda s, *a, **k: None,
-                            "__call__": lambda s, *a, **k: None,
-                            "predict":  lambda s, X: np.zeros(len(X)),
-                        })())
+                # Unknown symbol: fail loudly. A generic stub whose predict()
+                # returns zeros would let the app display PAR = 0 with no error.
+                raise RuntimeError(
+                    f"Model file references an unknown notebook symbol '{missing}'. "
+                    "Retrain with 6_model_training_All_Files.ipynb (or "
+                    "src/run_pipeline_xgboost.py --run --only training) so the pickle "
+                    "only depends on XGBEnsemble."
+                ) from exc
     raise RuntimeError(
         f"Could not load model after 30 attempts. "
         f"Too many missing __main__ symbols in {path}"
@@ -171,17 +174,21 @@ def predict_par(features_df: pd.DataFrame) -> float:
     """
     Predict PAR [µmol/m²/s] from a feature DataFrame.
 
-    The DataFrame must contain at least the columns returned by
-    core.features.compute_features().  Extra columns are ignored;
-    missing columns are filled with 0.
+    The DataFrame must contain every column the model was trained on
+    (see core.features.compute_features()).  Extra columns are ignored.
+    A missing column raises instead of being silently filled with 0 —
+    a zero-filled feature would produce a confident but wrong prediction.
     """
     model, feature_names = load_model()
 
-    # Build ordered feature matrix
-    X = pd.DataFrame(index=features_df.index)
-    for col in feature_names:
-        X[col] = features_df[col] if col in features_df.columns else 0.0
+    missing = [c for c in feature_names if c not in features_df.columns]
+    if missing:
+        raise KeyError(
+            f"Feature(s) required by the model are missing: {missing}. "
+            "core.features.compute_features() and the training notebooks are out of sync."
+        )
 
+    X = features_df.loc[:, list(feature_names)].to_numpy(dtype="float64")
     pred = model.predict(X)[0]
     return float(max(0.0, pred))
 
@@ -206,8 +213,11 @@ def mccree_estimate(ghi: float) -> float:
     """
     Classic McCree baseline  [µmol/m²/s].
 
-    PAR (µmol/m²/s) = GHI (W/m²) × 0.45 (PAR energy fraction)
-                                  × 4.57 (µmol/J conversion for solar spectrum)
-                    ≈ GHI × 2.06
+    PAR (µmol/m²/s) = GHI (W/m²) × PAR_ENERGY_FRACTION  (0.45, dimensionless)
+                                  × PAR_QUANTUM_EFFICACY (4.57 µmol/J)
+                    = GHI × MCCREE_FACTOR
+
+    The factor lives in core.constants so the app, the notebooks and the
+    pipeline cannot drift apart — see tests/test_mccree_factor.py.
     """
-    return max(0.0, ghi * 2.06)
+    return max(0.0, ghi * MCCREE_FACTOR)
