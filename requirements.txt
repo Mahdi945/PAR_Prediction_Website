@@ -1,5 +1,15 @@
 # PAR Predictor — Web Application Dependencies (Streamlit Cloud installs this file)
-# Pinned, tested versions live in webapp/requirements_web.txt
+#
+# Deliberately unpinned. Streamlit Cloud currently builds on Python 3.14, and the
+# exact versions in webapp/requirements_web.txt (numpy 1.26.4, xgboost 2.0.3, …)
+# have no 3.14 wheels — pinning them here fails the build. Those pins are the
+# tested local combination; this file is what the deployed site resolves.
+#
+# Editing this file also forces Streamlit Cloud to rebuild the environment and
+# restart the Python process. That matters after a change that adds a new name
+# to a core/ module: Cloud re-runs the page scripts on a push but keeps already
+# imported modules in sys.modules, so new page code can meet an old core module
+# and fail with ImportError until the process is restarted.
 
 streamlit
 pandas
