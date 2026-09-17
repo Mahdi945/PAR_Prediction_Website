@@ -41,7 +41,8 @@ webapp/
 
 | Service | Purpose | Cost |
 |---|---|---|
-| [Open-Meteo](https://open-meteo.com) | Real-time weather (GHI, temp, humidity, wind, precipitation) | Free, no API key |
+| [Open-Meteo Forecast](https://open-meteo.com) | Weather for today and the next 15 days (GHI, temp, humidity, wind, precipitation) | Free, no API key |
+| [Open-Meteo Archive](https://open-meteo.com/en/docs/historical-weather-api) | ERA5 reanalysis for past dates, back to 1940-01-01 | Free, no API key |
 | [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api) | City name → lat/lon | Free, no API key |
 | [pvlib](https://pvlib-python.readthedocs.io) | Solar geometry (zenith, airmass, clearness index, DNI) | Local library |
 
@@ -110,7 +111,23 @@ The app works worldwide because:
 - **Open-Meteo** provides free weather data for any global location.
 - The feature engineering is fully location-agnostic.
 
-**Limitation:** The model was trained on temperate-climate German data.  Predictions for tropical, desert or polar climates may be less accurate until the model is retrained with data from those regions.
+The model is also **time-agnostic** — it maps GHI + weather + solar geometry to
+PAR for any instant, so the covered period is set purely by the weather API:
+
+| Requested date | Source | Coverage |
+|---|---|---|
+| Before today | Open-Meteo archive (ERA5 reanalysis) | 1940-01-01 → yesterday |
+| Today and later | Open-Meteo forecast model | today → today + 15 days |
+
+Dates outside that window are refused with an explicit message rather than
+answered from a nearby date. Every result states which source produced it, and
+Expert Mode still accepts manually entered readings for any date at all.
+
+**Limitations:**
+
+- The model was trained on temperate-climate German data. Predictions for tropical, desert or polar climates may be less accurate until the model is retrained with data from those regions.
+- ERA5 is a modelled, gridded reanalysis (~25 km), not a station measurement — historical predictions inherit its spatial smoothing.
+- Forecast accuracy degrades with the horizon; a +15-day GHI is a weather forecast, not a measurement.
 
 ---
 

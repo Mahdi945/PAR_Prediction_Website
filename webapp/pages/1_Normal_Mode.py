@@ -16,7 +16,8 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, date, time as dtime
 
-from core.weather   import fetch_weather, fetch_forecast
+from core.weather   import (fetch_weather, available_window,
+                            DateOutOfRangeError, WeatherServiceError)
 from core.features  import compute_features
 from core.predict   import predict_par, is_model_available
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
@@ -106,7 +107,7 @@ def par_category(par):
     if par < 700:  return "Good",      "#f39c12", "🌤️"
     return             "High",         "#e74c3c", "☀️"
 
-def dli_today(fc_df):
+def dli_for_day(fc_df):
     # DLI [mol/m²/day] = Σ_hours ( PAR [µmol/m²/s] × 3600 s ) / 1e6
     return round((fc_df["GHI"] * MCCREE_FACTOR * SECONDS_PER_HOUR).sum() / MICROMOL_PER_MOL, 1)
 
@@ -121,7 +122,8 @@ def crop_advice(dli):
 #  HEADER
 # ════════════════════════════════════════════════════════════════════════════════
 st.markdown("# 🌱 Normal Mode — ParPredict")
-st.caption("Enter coordinates · Weather auto-fetched from Open-Meteo · Predicted by XGBoost")
+st.caption("Enter coordinates · Weather from Open-Meteo (1940 → today +15 days) "
+           "· Predicted by XGBoost")
 st.divider()
 
 if not is_model_available():
@@ -167,15 +169,29 @@ with left:
         st.markdown('<div class="panel-title">🕐 Date & Time</div>',
                     unsafe_allow_html=True)
         now = datetime.now()
-        sel_date = st.date_input("Date", value=date.today())
+        win = available_window()
+        sel_date = st.date_input(
+            "Date",
+            value=win.today,
+            min_value=win.min_date,
+            max_value=win.max_date,
+            help="Past dates use ERA5 reanalysis; today and future dates use "
+                 "the forecast model.",
+        )
         sel_time = st.time_input(
             "Local time at that location",
             value=dtime(now.hour, 0),
             step=60,
-            help="Cliquez dans le champ ou tapez l'heure au format HH:MM.",
+            help="Click the field or type the hour as HH:MM. "
+                 "Weather is hourly, so minutes are ignored.",
         )
         dt_sel = datetime.combine(sel_date, sel_time)
-        st.caption("ℹ️ Timezone is resolved automatically from coordinates.")
+        st.caption(
+            f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
+            f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "
+            f"forecast to today +15. Timezone is resolved automatically "
+            f"from the coordinates."
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -207,9 +223,18 @@ if predict_btn:
     with progress.container():
         with st.spinner("⏳ Fetching weather from Open-Meteo…"):
             try:
+                # One request: the point value and the day series share a source.
                 weather     = fetch_weather(lat, lon, dt_sel)
-                forecast_df = fetch_forecast(lat, lon, dt_sel)
+                forecast_df = weather["_day_series"]
                 tz_str      = weather.get("_timezone", "UTC")
+            except DateOutOfRangeError as e:
+                with right:
+                    st.error(f"📅 {e}")
+                st.stop()
+            except WeatherServiceError as e:
+                with right:
+                    st.error(f"❌ Weather data unavailable: {e}")
+                st.stop()
             except Exception as e:
                 with right:
                     st.error(f"❌ Weather API error: {e}")
@@ -232,6 +257,11 @@ if predict_btn:
         "par": par_val, "weather": weather, "features": feat,
         "is_day": is_day, "forecast": forecast_df,
         "lat": lat, "lon": lon, "alt": alt, "dt": dt_sel, "tz": tz_str,
+        "source":       weather["_source"],
+        "source_label": weather["_source_label"],
+        "horizon":      weather["_horizon_days"],
+        "matched_time": weather["_matched_time"],
+        "missing":      weather["_missing"],
     }
 
     # Auto-scroll to results section
@@ -261,7 +291,9 @@ with right:
                 Enter <strong style="color:#2ecc71">coordinates</strong>
                 and <strong style="color:#2ecc71">date/time</strong> on the left,<br>
                 then click <strong style="color:#2ecc71">Predict PAR</strong>.<br><br>
-                Weather is fetched <em>automatically</em> for any location on Earth.
+                Weather is fetched <em>automatically</em> for any location on
+                Earth — any date from <strong style="color:#2ecc71">1940</strong>
+                up to <strong style="color:#2ecc71">15 days ahead</strong>.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -283,6 +315,28 @@ with right:
             f"`{res['tz']}` &nbsp;·&nbsp; "
             f"**{res['dt'].strftime('%Y-%m-%d %H:%M')}**"
         )
+
+        # ── Where these numbers come from ─────────────────────────────────────
+        _matched = f"Matched hour: {res['matched_time'].replace('T', ' ')} local."
+        if res["source"] == "archive":
+            st.info(
+                f"📜 **{res['source_label']}** — modelled, gridded reanalysis, "
+                f"not station measurements. {_matched}"
+            )
+        elif res["horizon"] == 0:
+            st.caption(f"🛰️ {res['source_label']} · {_matched}")
+        else:
+            st.info(
+                f"🔮 **{res['source_label']}** — forecast uncertainty grows "
+                f"with the horizon. {_matched}"
+            )
+
+        if res["missing"]:
+            st.warning(
+                "⚠️ Open-Meteo had no value for: "
+                + ", ".join(res["missing"])
+                + " — typical values were used for those inputs."
+            )
 
         if not is_day:
             st.info(
@@ -340,10 +394,10 @@ with right:
             """, unsafe_allow_html=True)
 
         with c_dli:
-            dli = dli_today(fc)
+            dli = dli_for_day(fc)
             st.markdown(f"""
             <div class="dli-card">
-                <div class="dli-lbl">Daily Light Integral — today</div>
+                <div class="dli-lbl">Daily Light Integral — {res['dt']:%Y-%m-%d}</div>
                 <div class="dli-val">{dli}
                   <span style="font-size:.85rem;color:#8892b0">mol/m²/day</span>
                 </div>
@@ -383,11 +437,17 @@ with right:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Daily forecast chart ──────────────────────────────────────────────
+        # ── Irradiance over the selected day ──────────────────────────────────
+        if res["source"] == "archive":
+            _chart_tag = "historical"
+        elif res["horizon"] == 0:
+            _chart_tag = "today"
+        else:
+            _chart_tag = f"forecast +{res['horizon']} d"
         st.markdown(
             '<div style="font-size:.78rem;font-weight:700;color:#2ecc71;'
             'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.4rem">'
-            "Today's Irradiance Forecast</div>",
+            f"Irradiance — {res['dt']:%Y-%m-%d} ({_chart_tag})</div>",
             unsafe_allow_html=True,
         )
         par_fc = (fc["GHI"] * MCCREE_FACTOR).clip(lower=0)

@@ -196,7 +196,8 @@ with col_a:
         <div class="mode-title">Normal Mode</div>
         <div class="mode-desc">
             Search for any city or enter coordinates.<br>
-            Weather is fetched <em>automatically</em> from Open-Meteo.
+            Weather is fetched <em>automatically</em> from Open-Meteo —
+            any date from 1940 to 15 days ahead.
         </div>
         <div style="margin-top:1rem">
           <strong style="color:#2ecc71">3 inputs &nbsp;·&nbsp; One prediction</strong>
@@ -357,7 +358,8 @@ agrivoltaic monitoring stations in Germany (Laubsdorf & Nebelin, 2024–2025).
 
 The model learns non-linear interactions between GHI, solar position,
 humidity, precipitation and temperature to predict PAR accurately —
-for **any location worldwide** via the Open-Meteo weather API.
+for **any location worldwide**, and for **any date** from 1940 to 15 days
+ahead, via the Open-Meteo weather API.
         """)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -366,7 +368,7 @@ for **any location worldwide** via the Open-Meteo weather API.
 st.markdown("### How it works")
 steps = [
     ("📍", "Location",  "Enter a city name or latitude / longitude coordinates."),
-    ("🌤️", "Weather",  "Open-Meteo API delivers real-time GHI, temperature, humidity, wind and precipitation for that location."),
+    ("🌤️", "Weather",  "Open-Meteo delivers hourly GHI, temperature, humidity, wind and precipitation — ERA5 reanalysis for past dates, the forecast model for today and the next 15 days."),
     ("☀️", "Solar Geometry", "pvlib computes zenith angle, airmass, clearness index and DNI — the same physics used in training."),
     ("🤖", "Predict",   "The XGBoost model infers PAR from all 22 features in milliseconds."),
     ("🌱", "Act",       "Use the PAR estimate and DLI forecast for irrigation scheduling, crop monitoring and yield forecasting."),

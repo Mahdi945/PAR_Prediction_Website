@@ -20,7 +20,32 @@ from core.features import compute_features
 from core.predict  import (
     predict_par, mccree_estimate, get_feature_importance, is_model_available
 )
-from core.weather  import fetch_weather
+from core.weather  import (fetch_weather, available_window,
+                           DateOutOfRangeError, WeatherServiceError)
+
+# Widget bounds, defined once and reused by both the sliders/number inputs and
+# the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
+# Yakutsk, 45 m/s wind) makes Streamlit raise on the next rerun.
+_RANGES = {
+    "e_ghi":  (0.0, 1400.0),
+    "e_temp": (-20.0,  50.0),
+    "e_rh":   (0.0,   100.0),
+    "e_dwp":  (-20.0,  40.0),
+    "e_ws":   (0.0,    40.0),
+    "e_wd":   (0.0,   360.0),
+    "e_prec": (0.0,    30.0),
+}
+
+# session_state key → the key fetch_weather() returns it under
+_FETCH_KEYS = [
+    ("e_ghi",  "GHI_RC_01",   "GHI"),
+    ("e_temp", "Temp_WS",     "temperature"),
+    ("e_rh",   "RH_WS",       "humidity"),
+    ("e_dwp",  "DWP_WS",      "dew point"),
+    ("e_ws",   "WS_WS",       "wind speed"),
+    ("e_wd",   "WD_WS",       "wind direction"),
+    ("e_prec", "PREC_INT_WS", "precipitation"),
+]
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -105,15 +130,43 @@ for key, value in {
     if key not in st.session_state:
         st.session_state[key] = value
 
+# A date left over from an older session could now sit outside the window
+# (it moves forward every day), which makes st.date_input raise.
+_win = available_window()
+st.session_state.e_date = min(max(st.session_state.e_date, _win.min_date),
+                             _win.max_date)
+
 if "expert_autofetch_temp" in st.session_state:
     fetched = st.session_state.pop("expert_autofetch_temp")
-    st.session_state.e_ghi  = fetched.get("GHI_RC_01", st.session_state.e_ghi)
-    st.session_state.e_temp = fetched.get("Temp_WS",    st.session_state.e_temp)
-    st.session_state.e_rh   = fetched.get("RH_WS",      st.session_state.e_rh)
-    st.session_state.e_dwp  = fetched.get("DWP_WS",     st.session_state.e_dwp)
-    st.session_state.e_ws   = fetched.get("WS_WS",      st.session_state.e_ws)
-    st.session_state.e_wd   = fetched.get("WD_WS",      st.session_state.e_wd)
-    st.session_state.e_prec = fetched.get("PREC_INT_WS", st.session_state.e_prec)
+
+    clamped = []
+    for key, src, label in _FETCH_KEYS:
+        lo, hi = _RANGES[key]
+        value  = float(fetched.get(src, st.session_state[key]))
+        if value < lo or value > hi:
+            clamped.append(f"{label} {value:.1f} → {min(max(value, lo), hi):.1f}")
+            value = min(max(value, lo), hi)
+        st.session_state[key] = value
+
+    # Without this the typed timezone stays put and the solar geometry is
+    # computed for the wrong zone.
+    st.session_state.e_tz = fetched.get("_timezone", st.session_state.e_tz)
+
+    notes = []
+    if fetched.get("_missing"):
+        notes.append("no Open-Meteo value for " + ", ".join(fetched["_missing"]))
+    if clamped:
+        notes.append("clamped to the input range: " + "; ".join(clamped))
+
+    status_type = "warning" if notes else "success"
+    message = (
+        f"✅ Weather fetched — {fetched['_source_label']} · "
+        f"{fetched['_matched_time'].replace('T', ' ')} "
+        f"({fetched['_timezone']}). Timezone field updated."
+    )
+    if notes:
+        message += "  \n⚠️ " + " · ".join(notes) + "."
+    st.session_state.expert_autofetch_status = (status_type, message)
 
 
 def _apply_expert_autofetch():
@@ -122,18 +175,21 @@ def _apply_expert_autofetch():
             st.session_state.e_date,
             st.session_state.e_time,
         )
-        fetched = fetch_weather(
+        st.session_state.expert_autofetch_temp = fetch_weather(
             st.session_state.e_lat,
             st.session_state.e_lon,
             dt_sel,
         )
-        st.session_state.expert_autofetch_temp = fetched
+        st.session_state.pop("expert_autofetch_status", None)
+    except DateOutOfRangeError as e:
+        st.session_state.expert_autofetch_status = ("error", f"📅 {e}")
+    except WeatherServiceError as e:
         st.session_state.expert_autofetch_status = (
-            "success", "✅ Weather auto-fetched successfully."
+            "error", f"❌ Open-Meteo fetch failed: {e}"
         )
     except Exception as e:
         st.session_state.expert_autofetch_status = (
-            "error", f"❌ Open-Meteo fetch failed: {e}"
+            "error", f"❌ Unexpected error: {e}"
         )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -215,30 +271,46 @@ with left:
         # ── Location & Time ───────────────────────────────────────────────────
         st.markdown('<div class="panel-title">📍 Location & Time</div>',
                     unsafe_allow_html=True)
-        lat = st.number_input("Latitude (°N)",  -90.0,  90.0,  51.6872,
+        lat = st.number_input("Latitude (°N)",  -90.0,  90.0,
                               format="%.4f", step=0.0001, key="e_lat")
-        lon = st.number_input("Longitude (°E)", -180.0, 180.0, 14.4143,
+        lon = st.number_input("Longitude (°E)", -180.0, 180.0,
                               format="%.4f", step=0.0001, key="e_lon")
-        alt = st.number_input("Altitude (m)",    0.0, 8848.0, 84.0,
+        alt = st.number_input("Altitude (m)",    0.0, 8848.0,
                               step=1.0, key="e_alt")
-        tz  = st.text_input("Timezone (IANA)", "Europe/Berlin", key="e_tz")
+        # No default: auto-fetch writes the real zone into e_tz.
+        tz  = st.text_input("Timezone (IANA)", key="e_tz",
+                            help="Filled in automatically by auto-fetch.")
 
-        now = datetime.now()
-        sel_date = st.date_input("Date",  date.today(), key="e_date")
+        # No positional default: session_state already seeds these keys, and
+        # passing both makes Streamlit warn.
+        sel_date = st.date_input(
+            "Date",
+            key="e_date",
+            min_value=_win.min_date,
+            max_value=_win.max_date,
+            help="Past dates use ERA5 reanalysis; today and future dates use "
+                 "the forecast model.",
+        )
         sel_time = st.time_input(
             "Local time",
-            dtime(now.hour, 0),
             step=60,
             key="e_time",
-            help="Cliquez dans le champ ou tapez l'heure au format HH:MM.",
+            help="Click the field or type the hour as HH:MM. "
+                 "Weather is hourly, so minutes are ignored.",
         )
         dt_sel = datetime.combine(sel_date, sel_time)
+        st.caption(
+            f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
+            f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "
+            f"prediction works for any date — solar geometry is computed "
+            f"locally, not fetched."
+        )
 
         # ── Solar Irradiance ──────────────────────────────────────────────────
         st.markdown('<div class="panel-title">☀️ Solar Irradiance</div>',
                     unsafe_allow_html=True)
         ghi = st.slider("GHI — Global Horizontal Irradiance (W/m²)",
-                        0.0, 1400.0, 450.0, 1.0, key="e_ghi")
+                        *_RANGES["e_ghi"], step=1.0, key="e_ghi")
 
         # ── Meteorological Sensors ─────────────────────────────────────────────
         st.markdown('<div class="panel-title">🌡️ Meteorological Sensors</div>',
@@ -246,19 +318,19 @@ with left:
 
         c1, c2 = st.columns(2)
         with c1:
-            temp = st.number_input("Temperature (°C)", -20.0, 50.0, 18.0,
-                                   0.1, key="e_temp")
-            rh   = st.number_input("Humidity (%)",      0.0, 100.0, 65.0,
-                                   0.5, key="e_rh")
-            dwp  = st.number_input("Dewpoint (°C)",    -20.0, 40.0,  8.0,
-                                   0.1, key="e_dwp")
+            temp = st.number_input("Temperature (°C)", *_RANGES["e_temp"],
+                                   step=0.1, key="e_temp")
+            rh   = st.number_input("Humidity (%)",     *_RANGES["e_rh"],
+                                   step=0.5, key="e_rh")
+            dwp  = st.number_input("Dewpoint (°C)",    *_RANGES["e_dwp"],
+                                   step=0.1, key="e_dwp")
         with c2:
-            ws   = st.number_input("Wind speed (m/s)",  0.0,  40.0, 3.0,
-                                   0.1, key="e_ws")
-            wd   = st.number_input("Wind dir (°)",       0.0, 360.0, 180.0,
-                                   1.0, key="e_wd")
-            prec = st.number_input("Precipitation (mm/h)", 0.0, 30.0, 0.0,
-                                   0.1, key="e_prec")
+            ws   = st.number_input("Wind speed (m/s)", *_RANGES["e_ws"],
+                                   step=0.1, key="e_ws")
+            wd   = st.number_input("Wind dir (°)",     *_RANGES["e_wd"],
+                                   step=1.0, key="e_wd")
+            prec = st.number_input("Precipitation (mm/h)", *_RANGES["e_prec"],
+                                   step=0.1, key="e_prec")
 
         st.markdown("<br>", unsafe_allow_html=True)
         fetch_weather_btn = st.button(
@@ -271,6 +343,8 @@ with left:
             status_type, status_msg = st.session_state.expert_autofetch_status
             if status_type == "success":
                 st.success(status_msg)
+            elif status_type == "warning":
+                st.warning(status_msg)
             else:
                 st.error(status_msg)
         predict_btn = st.button("⚙️  Predict PAR",
