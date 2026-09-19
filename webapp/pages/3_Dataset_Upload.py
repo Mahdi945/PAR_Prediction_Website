@@ -29,7 +29,6 @@ def infer_city_from_filename(filename: str) -> str | None:
 from core.dataset import prepare_dataset_for_prediction
 from core.predict import get_feature_importance, is_model_available
 from core.weather import geocode_city
-from core.i18n import t, t_block, current_lang
 
 
 def _pick_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
@@ -160,23 +159,23 @@ st.markdown("""
 if "dataset_result" not in st.session_state:
     st.session_state.dataset_result = None
 
-st.markdown(f"# 📊 {t('Dataset Upload')} Mode")
-st.caption(t("Upload a full sensor dataset, clean it, resample to one-minute values, and benchmark the PAR model against a baseline."))
+st.markdown("# 📊 Dataset Upload Mode")
+st.caption("Upload a full sensor dataset, clean it, resample to one-minute values, and benchmark the PAR model against a baseline.")
 st.divider()
 
 if not is_model_available():
-    st.error(t("⚠️ Model not found. Run `git lfs pull` from the project root before running this page."))
+    st.error("⚠️ Model not found. Run `git lfs pull` from the project root before running this page.")
     st.stop()
 
 with st.container(border=True):
-    st.markdown(f'<div class="panel-title">📁 {t("Upload Dataset")}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel-title">📁 Upload Dataset</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        t("Choose a CSV or Excel file"),
+        "Choose a CSV or Excel file",
         type=["csv", "xlsx", "xls"],
-        help=t("The dataset should include timestamp, latitude, longitude and weather/sensor columns."),
+        help="The dataset should include timestamp, latitude, longitude and weather/sensor columns.",
         accept_multiple_files=False,
     )
-    st.caption(t("Max file size: 10 GB"))
+    st.caption("Max file size: 10 GB")
 
     if uploaded_file is not None:
         try:
@@ -185,22 +184,19 @@ with st.container(border=True):
             else:
                 df = pd.read_excel(uploaded_file)
         except Exception as exc:
-            st.error(f"{t('Could not load the uploaded file:')} {exc}")
+            st.error(f"Could not load the uploaded file: {exc}")
             st.stop()
 
-        if current_lang() == "de":
-            st.success(f"{len(df)} Zeilen aus {uploaded_file.name} geladen.")
-        else:
-            st.success(f"Loaded {len(df)} rows from {uploaded_file.name}.")
+        st.success(f"Loaded {len(df)} rows from {uploaded_file.name}.")
 
-        st.markdown(f'<div class="panel-title">🧭 {t("Column Mapping")}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel-title">🧭 Column Mapping</div>', unsafe_allow_html=True)
         timestamp_candidates = ["timestamp", "datetime", "date_time", "time", "date", "created_at", "ts"]
         default_timestamp = _pick_column(df, timestamp_candidates) or df.columns[0]
         column_options = list(df.columns)
         default_timestamp_idx = column_options.index(default_timestamp) if default_timestamp in column_options else 0
-        timestamp_col = st.selectbox(t("Timestamp column"), options=column_options, index=default_timestamp_idx)
+        timestamp_col = st.selectbox("Timestamp column", options=column_options, index=default_timestamp_idx)
 
-        st.caption(t("Latitude, longitude, and altitude are entered below. The app will infer values from the filename if available."))
+        st.caption("Latitude, longitude, and altitude are entered below. The app will infer values from the filename if available.")
 
         # Optional: let the user identify the observed PAR column for metric computation
         # Accept any column whose name contains "par" (case-insensitive)
@@ -211,14 +207,14 @@ with st.container(border=True):
         par_col_options = ["— none —"] + list(df.columns)
         default_par_idx = par_col_options.index(default_par) if default_par in par_col_options else 0
         par_col_label = st.selectbox(
-            t("Observed PAR column (optional — needed for error metrics)"),
+            "Observed PAR column (optional — needed for error metrics)",
             options=par_col_options,
             index=default_par_idx,
-            help=t("Select the column containing measured PAR [µmol/m²/s]. Required to compute MAE, R², etc."),
+            help="Select the column containing measured PAR [µmol/m²/s]. Required to compute MAE, R², etc.",
         )
         target_col = par_col_label if par_col_label != "— none —" else None
 
-        st.markdown(f'<div class="panel-title">⚙️ {t("Processing Settings")}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel-title">⚙️ Processing Settings</div>', unsafe_allow_html=True)
         filename = uploaded_file.name
         inferred_city = infer_city_from_filename(filename)
         inferred_location = None
@@ -227,10 +223,7 @@ with st.container(border=True):
         inferred_lon = None
         inferred_alt = None
         if inferred_city:
-            if current_lang() == "de":
-                st.caption(f"Aus dem Dateinamen abgeleitete Stadt: {inferred_city}")
-            else:
-                st.caption(f"Inferred city from filename: {inferred_city}")
+            st.caption(f"Inferred city from filename: {inferred_city}")
             # Best-effort convenience lookup. A network failure must never stop the
             # upload: the coordinates below are editable and are what actually count.
             try:
@@ -238,52 +231,49 @@ with st.container(border=True):
             except Exception:
                 candidates = []
             if not candidates:
-                st.caption(t(
+                st.caption(
                     "⚠️ Could not look up coordinates automatically — "
                     "enter latitude, longitude and altitude below."
-                ))
+                )
             if candidates:
                 inferred_location = candidates[0]
                 inferred_lat = inferred_location.get("latitude")
                 inferred_lon = inferred_location.get("longitude")
                 inferred_timezone = inferred_location.get("timezone", "UTC") if isinstance(inferred_location, dict) else "UTC"
                 inferred_alt = inferred_location.get("elevation")
-                if current_lang() == "de":
-                    st.caption(f"Verwendeter abgeleiteter Standort: {inferred_location['display']}")
-                else:
-                    st.caption(f"Using inferred location: {inferred_location['display']}")
+                st.caption(f"Using inferred location: {inferred_location['display']}")
 
-        timezone_str = st.text_input(t("Timezone"), value=inferred_timezone)
+        timezone_str = st.text_input("Timezone", value=inferred_timezone)
 
-        st.markdown(f'<div class="panel-title">📍 {t("Coordinates (editable)")}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel-title">📍 Coordinates (editable)</div>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1, 1, 1])
         with c1:
             override_lat = st.number_input(
-                t("Latitude"),
+                "Latitude",
                 value=float(inferred_lat) if inferred_lat is not None else 0.0,
                 format="%.6f",
-                help=t("Adjust the latitude used for prediction."),
+                help="Adjust the latitude used for prediction.",
             )
         with c2:
             override_lon = st.number_input(
-                t("Longitude"),
+                "Longitude",
                 value=float(inferred_lon) if inferred_lon is not None else 0.0,
                 format="%.6f",
-                help=t("Adjust the longitude used for prediction."),
+                help="Adjust the longitude used for prediction.",
             )
         with c3:
             override_alt = st.number_input(
-                t("Altitude"),
+                "Altitude",
                 value=float(inferred_alt) if inferred_alt is not None else 0.0,
                 format="%.1f",
-                help=t("Adjust the altitude used for prediction."),
+                help="Adjust the altitude used for prediction.",
             )
 
-        st.caption(t("The deployed XGBoost model is trained at 1-minute resolution; this is enforced for consistent predictions."))
+        st.caption("The deployed XGBoost model is trained at 1-minute resolution; this is enforced for consistent predictions.")
         resample_period = "1min"
 
-        if st.button(f"🚀 {t('Run cleaning, feature engineering and prediction')}", type="primary", use_container_width=True):
-            with st.spinner(t("Processing the uploaded dataset... This may take a few moments.")):
+        if st.button("🚀 Run cleaning, feature engineering and prediction", type="primary", use_container_width=True):
+            with st.spinner("Processing the uploaded dataset... This may take a few moments."):
                 try:
                     call_args = _build_processing_args(
                         df=df,
@@ -300,11 +290,11 @@ with st.container(border=True):
                     st.session_state.dataset_result = result
                     st.session_state.dataset_scroll = True
                 except Exception as exc:
-                    st.error(f"{t('Processing failed:')} {exc}")
+                    st.error(f"Processing failed: {exc}")
                     st.stop()
 
-        if st.session_state.dataset_result is not None and st.button(f"🔄 {t('Re-run processing')}", use_container_width=True):
-            with st.spinner(t("Re-processing dataset with current settings...")):
+        if st.session_state.dataset_result is not None and st.button("🔄 Re-run processing", use_container_width=True):
+            with st.spinner("Re-processing dataset with current settings..."):
                 try:
                     call_args = _build_processing_args(
                         df=df,
@@ -321,7 +311,7 @@ with st.container(border=True):
                     st.session_state.dataset_result = result
                     st.session_state.dataset_scroll = True
                 except Exception as exc:
-                    st.error(f"{t('Processing failed:')} {exc}")
+                    st.error(f"Processing failed: {exc}")
                     st.stop()
 
         if st.session_state.dataset_result is not None:
@@ -336,7 +326,7 @@ with st.container(border=True):
 
             st.divider()
             st.markdown('<a id="results-anchor"></a>', unsafe_allow_html=True)
-            st.markdown(f"## 📈 {t('Results')}")
+            st.markdown("## 📈 Results")
             result = st.session_state.dataset_result
             metrics = result.get("metrics", {})
             res_df = result.get("results")
@@ -345,62 +335,56 @@ with st.container(border=True):
                 # ── Row counts ────────────────────────────────────────────────
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
-                    st.metric(t("Rows uploaded"), f"{result['raw_rows']:,}")
+                    st.metric("Rows uploaded", f"{result['raw_rows']:,}")
                 with c2:
-                    st.metric(t("Rows after cleaning"), f"{result['clean_rows']:,}")
+                    st.metric("Rows after cleaning", f"{result['clean_rows']:,}")
                 with c3:
-                    st.metric(t("Rows after resampling"), f"{result['resampled_rows']:,}")
+                    st.metric("Rows after resampling", f"{result['resampled_rows']:,}")
                 with c4:
-                    st.metric(t("Timezone"), timezone_str)
+                    st.metric("Timezone", timezone_str)
 
                 # ── Comparison table: Baseline (left) vs Model (right) ────────
-                st.markdown(f'<div class="panel-title">📊 {t("Baseline vs Model — Full Metrics Comparison")}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">📊 Baseline vs Model — Full Metrics Comparison</div>', unsafe_allow_html=True)
                 has_metrics = bool(metrics)
                 if has_metrics:
                     n_eval = metrics.get("daytime_rows_evaluated", "?")
-                    if isinstance(n_eval, int):
-                        if current_lang() == "de":
-                            st.caption(f"Ausgewertet auf {n_eval:,} Tageszeilen mit PAR > 0 — entspricht den Trainingsbedingungen.")
-                        else:
-                            st.caption(f"Evaluated on {n_eval:,} daytime rows with PAR > 0 — matches training conditions.")
-                    else:
-                        st.caption("")
+                    st.caption(f"Evaluated on {n_eval:,} daytime rows with PAR > 0 — matches training conditions." if isinstance(n_eval, int) else "")
 
                     def _fmt(v: float, suffix: str = "") -> str:
                         return f"{v:.4f}{suffix}" if np.isfinite(v) else "—"
 
-                    # Rows: (label, baseline_val, model_val, lower_is_better, is_improvement_row)
+                    # Rows: (label, baseline_val, model_val, lower_is_better)
                     metric_rows = [
-                        (t("R²"),                  metrics.get("baseline_r2",    float("nan")), metrics.get("model_r2",    float("nan")), False, False),
-                        (t("nRMSE (%)"),            metrics.get("baseline_nrmse", float("nan")), metrics.get("model_nrmse", float("nan")), True,  False),
-                        (t("RMSE (µmol/m²/s)"),    metrics.get("baseline_rmse",  float("nan")), metrics.get("model_rmse",  float("nan")), True,  False),
-                        (t("MAE  (µmol/m²/s)"),    metrics.get("baseline_mae",   float("nan")), metrics.get("model_mae",   float("nan")), True,  False),
-                        (t("nMBE (%)"),             metrics.get("baseline_nmbe",  float("nan")), metrics.get("model_nmbe",  float("nan")), None,  False),
-                        (t("MBE  (µmol/m²/s)"),    metrics.get("baseline_mbe",   float("nan")), metrics.get("model_mbe",   float("nan")), None,  False),
-                        (t("MAE improvement (%)"),  float("nan"),                                metrics.get("mae_improvement_pct",  float("nan")), False, True),
-                        (t("RMSE improvement (%)"), float("nan"),                                metrics.get("rmse_improvement_pct", float("nan")), False, True),
+                        ("R²",                  metrics.get("baseline_r2",    float("nan")), metrics.get("model_r2",    float("nan")), False),
+                        ("nRMSE (%)",            metrics.get("baseline_nrmse", float("nan")), metrics.get("model_nrmse", float("nan")), True),
+                        ("RMSE (µmol/m²/s)",    metrics.get("baseline_rmse",  float("nan")), metrics.get("model_rmse",  float("nan")), True),
+                        ("MAE  (µmol/m²/s)",    metrics.get("baseline_mae",   float("nan")), metrics.get("model_mae",   float("nan")), True),
+                        ("nMBE (%)",             metrics.get("baseline_nmbe",  float("nan")), metrics.get("model_nmbe",  float("nan")), None),
+                        ("MBE  (µmol/m²/s)",    metrics.get("baseline_mbe",   float("nan")), metrics.get("model_mbe",   float("nan")), None),
+                        ("MAE improvement (%)",  float("nan"),                                metrics.get("mae_improvement_pct",  float("nan")), False),
+                        ("RMSE improvement (%)", float("nan"),                                metrics.get("rmse_improvement_pct", float("nan")), False),
                     ]
-                    table_html = f"""
+                    table_html = """
                     <table style="width:100%;border-collapse:collapse;font-size:.92rem;margin-bottom:1rem">
                     <thead>
                         <tr>
-                            <th style="text-align:left;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">{t("Metric")}</th>
-                            <th style="text-align:right;padding:.55rem .8rem;color:#f39c12;border-bottom:1px solid #2a2d3e">{t("Baseline (McCree)")}</th>
-                            <th style="text-align:right;padding:.55rem .8rem;color:#2ecc71;border-bottom:1px solid #2a2d3e">{t("Model (XGBoost)")}</th>
-                            <th style="text-align:right;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">{t("Winner")}</th>
+                            <th style="text-align:left;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">Metric</th>
+                            <th style="text-align:right;padding:.55rem .8rem;color:#f39c12;border-bottom:1px solid #2a2d3e">Baseline (McCree)</th>
+                            <th style="text-align:right;padding:.55rem .8rem;color:#2ecc71;border-bottom:1px solid #2a2d3e">Model (XGBoost)</th>
+                            <th style="text-align:right;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">Winner</th>
                         </tr>
                     </thead><tbody>"""
-                    for label, bv, mv, lower_better, is_improvement in metric_rows:
+                    for label, bv, mv, lower_better in metric_rows:
                         if lower_better is True and np.isfinite(bv) and np.isfinite(mv):
-                            winner = t("✅ Model") if mv < bv else (t("⚠️ Baseline") if bv < mv else "—")
+                            winner = "✅ Model" if mv < bv else ("⚠️ Baseline" if bv < mv else "—")
                         elif lower_better is False and np.isfinite(bv) and np.isfinite(mv):
                             # for improvement cols: positive = model wins
-                            if is_improvement:
-                                winner = t("✅ Yes") if mv > 0 else t("⚠️ No")
+                            if "improvement" in label:
+                                winner = "✅ Yes" if mv > 0 else "⚠️ No"
                             else:
-                                winner = t("✅ Model") if mv > bv else (t("⚠️ Baseline") if bv > mv else "—")
+                                winner = "✅ Model" if mv > bv else ("⚠️ Baseline" if bv > mv else "—")
                         elif lower_better is None and np.isfinite(mv):
-                            winner = t("✅ ~0") if abs(mv) < 5 else t("⚠️ Bias")
+                            winner = "✅ ~0" if abs(mv) < 5 else "⚠️ Bias"
                         else:
                             winner = ""
                         table_html += (
@@ -414,10 +398,10 @@ with st.container(border=True):
                     table_html += "</tbody></table>"
                     st.markdown(table_html, unsafe_allow_html=True)
                 else:
-                    st.info(t("ℹ️ Accuracy metrics require an **Observed PAR column** — select one above and re-run to compute MAE, RMSE, MAPE and R²."))
+                    st.info("ℹ️ Accuracy metrics require an **Observed PAR column** — select one above and re-run to compute MAE, RMSE, MAPE and R².")
 
                 # ── Performance Comparison chart (model + baseline always; observed if available) ──
-                st.markdown(f'<div class="panel-title">📉 {t("Performance Comparison")}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">📉 Performance Comparison</div>', unsafe_allow_html=True)
                 chart_df = res_df.dropna(subset=["model_prediction", "baseline_prediction"]).copy()
                 # Only plot a sample for large datasets to keep the chart responsive
                 if len(chart_df) > 5000:
@@ -426,19 +410,19 @@ with st.container(border=True):
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
                         x=chart_df["timestamp"], y=chart_df["baseline_prediction"],
-                        mode="lines", name=t("Baseline (McCree)"),
+                        mode="lines", name="Baseline (McCree)",
                         line=dict(color="#f39c12", width=2),
                     ))
                     fig.add_trace(go.Scatter(
                         x=chart_df["timestamp"], y=chart_df["model_prediction"],
-                        mode="lines", name=t("Model (XGBoost)"),
+                        mode="lines", name="Model (XGBoost)",
                         line=dict(color="#2ecc71", width=2),
                     ))
                     has_obs = chart_df["target_par"].notna().any()
                     if has_obs:
                         fig.add_trace(go.Scatter(
                             x=chart_df["timestamp"], y=chart_df["target_par"],
-                            mode="lines", name=t("Observed PAR"),
+                            mode="lines", name="Observed PAR",
                             line=dict(color="#ffffff", width=1.5, dash="dot"),
                         ))
                     fig.update_layout(
@@ -449,40 +433,39 @@ with st.container(border=True):
                         margin=dict(l=10, r=10, t=10, b=0),
                         legend=dict(bgcolor="rgba(0,0,0,0)", orientation="h", yanchor="bottom", y=1.01),
                         xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
-                        yaxis=dict(title=t("PAR (µmol/m²/s)"), gridcolor="rgba(255,255,255,0.06)"),
+                        yaxis=dict(title="PAR (µmol/m²/s)", gridcolor="rgba(255,255,255,0.06)"),
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
                 # ── Feature importance ────────────────────────────────────────
                 feature_importance = get_feature_importance()
                 if feature_importance is not None:
-                    st.markdown(f'<div class="panel-title">✨ {t("Feature Importance")}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="panel-title">✨ Feature Importance</div>', unsafe_allow_html=True)
                     fi_df = feature_importance.reset_index()
-                    fi_df.columns = [t("Feature"), t("Importance")]
+                    fi_df.columns = ["Feature", "Importance"]
                     st.dataframe(fi_df.head(20), use_container_width=True, height=320)
 
                 # ── Preview ───────────────────────────────────────────────────
-                st.markdown(f'<div class="panel-title">📋 {t("Preview of Processed Data")}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="panel-title">📋 Preview of Processed Data</div>', unsafe_allow_html=True)
                 preview = res_df.head(20).copy()
                 preview = preview.rename(columns={
-                    "timestamp": t("Timestamp"),
-                    "model_prediction": t("Model PAR"),
-                    "baseline_prediction": t("Baseline PAR"),
+                    "timestamp": "Timestamp",
+                    "model_prediction": "Model PAR",
+                    "baseline_prediction": "Baseline PAR",
                     "difference": "Δ Model−Baseline",
-                    "target_par": t("Observed PAR"),
+                    "target_par": "Observed PAR",
                 })
                 st.dataframe(preview, use_container_width=True, height=320)
             else:
-                st.info(t("No processed rows were generated. Please verify your columns and timestamp values."))
+                st.info("No processed rows were generated. Please verify your columns and timestamp values.")
     else:
-        _welcome_body = ("""Upload a CSV or Excel file containing timestamps, coordinates and weather/sensor values.<br>
-                The page will clean the data, resample it to one-minute values, compute features, run the model and compare it to the McCree baseline.""")
-        st.markdown(f"""
+        st.markdown("""
         <div class="welcome-card">
             <div style="font-size:3rem;margin-bottom:1rem">📊</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:.8rem">{t("Ready to analyze your own dataset")}</div>
+            <div style="font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:.8rem">Ready to analyze your own dataset</div>
             <div style="font-size:.9rem;line-height:1.75">
-                {t_block("dataset.welcome_card", _welcome_body)}
+                Upload a CSV or Excel file containing timestamps, coordinates and weather/sensor values.<br>
+                The page will clean the data, resample it to one-minute values, compute features, run the model and compare it to the McCree baseline.
             </div>
         </div>
         """, unsafe_allow_html=True)

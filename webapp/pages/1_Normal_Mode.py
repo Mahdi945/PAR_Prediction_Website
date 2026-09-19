@@ -21,7 +21,6 @@ from core.weather   import (fetch_weather, available_window,
 from core.features  import compute_features
 from core.predict   import predict_par, is_model_available
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
-from core.i18n import t, t_block, current_lang
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -102,32 +101,33 @@ if "normal_result" not in st.session_state:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def par_category(par):
-    if par < 50:   return t("Very Low"),  "#6c757d", "🌑"
-    if par < 200:  return t("Low"),       "#3498db", "🌥️"
-    if par < 400:  return t("Moderate"),  "#2ecc71", "⛅"
-    if par < 700:  return t("Good"),      "#f39c12", "🌤️"
-    return             t("High"),         "#e74c3c", "☀️"
+    if par < 50:   return "Very Low",  "#6c757d", "🌑"
+    if par < 200:  return "Low",       "#3498db", "🌥️"
+    if par < 400:  return "Moderate",  "#2ecc71", "⛅"
+    if par < 700:  return "Good",      "#f39c12", "🌤️"
+    return             "High",         "#e74c3c", "☀️"
 
 def dli_for_day(fc_df):
     # DLI [mol/m²/day] = Σ_hours ( PAR [µmol/m²/s] × 3600 s ) / 1e6
     return round((fc_df["GHI"] * MCCREE_FACTOR * SECONDS_PER_HOUR).sum() / MICROMOL_PER_MOL, 1)
 
 def crop_advice(dli):
-    if dli < 5:   return t("🌿 Shade-tolerant crops (moss, ferns, microgreens)")
-    if dli < 10:  return t("🥬 Lettuce, spinach, herbs — ideal")
-    if dli < 20:  return t("🫑 Peppers, cucumbers, tomatoes (greenhouse)")
-    if dli < 35:  return t("🍅 Tomatoes, most fruiting crops — excellent")
-    return              t("🌻 Full-sun crops: sunflowers, corn, soybeans")
+    if dli < 5:   return "🌿 Shade-tolerant crops (moss, ferns, microgreens)"
+    if dli < 10:  return "🥬 Lettuce, spinach, herbs — ideal"
+    if dli < 20:  return "🫑 Peppers, cucumbers, tomatoes (greenhouse)"
+    if dli < 35:  return "🍅 Tomatoes, most fruiting crops — excellent"
+    return              "🌻 Full-sun crops: sunflowers, corn, soybeans"
 
 # ════════════════════════════════════════════════════════════════════════════════
 #  HEADER
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown(f"# 🌱 {t('Normal Mode')} — ParPredict")
-st.caption(t("Enter coordinates · Weather from Open-Meteo (1940 → today +15 days) · Predicted by XGBoost"))
+st.markdown("# 🌱 Normal Mode — ParPredict")
+st.caption("Enter coordinates · Weather from Open-Meteo (1940 → today +15 days) "
+           "· Predicted by XGBoost")
 st.divider()
 
 if not is_model_available():
-    st.error(t("⚠️ Model not found. Run `git lfs pull` from the project root."))
+    st.error("⚠️ Model not found. Run `git lfs pull` from the project root.")
     st.stop()
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -142,84 +142,78 @@ with left:
     with st.container(border=True):
 
         # ── Coordinates ──────────────────────────────────────────────────────
-        st.markdown(f'<div class="panel-title">📍 {t("Coordinates")}</div>',
+        st.markdown('<div class="panel-title">📍 Coordinates</div>',
                     unsafe_allow_html=True)
         lat = st.number_input(
-            t("Latitude (°N)"),
+            "Latitude (°N)",
             min_value=-90.0, max_value=90.0,
             value=51.6872, step=0.0001, format="%.4f",
-            help=t("Southern hemisphere → negative. Range: −90 to +90"),
+            help="Southern hemisphere → negative. Range: −90 to +90",
         )
         lon = st.number_input(
-            t("Longitude (°E)"),
+            "Longitude (°E)",
             min_value=-180.0, max_value=180.0,
             value=14.4143, step=0.0001, format="%.4f",
-            help=t("Western hemisphere → negative. Range: −180 to +180"),
+            help="Western hemisphere → negative. Range: −180 to +180",
         )
         alt = st.number_input(
-            t("Altitude (m)"),
+            "Altitude (m)",
             min_value=0.0, max_value=8848.0,
             value=84.0, step=1.0,
-            help=t("Used for precise solar geometry. Enter 0 if unknown."),
+            help="Used for precise solar geometry. Enter 0 if unknown.",
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
         # ── Date & Time ───────────────────────────────────────────────────────
-        st.markdown(f'<div class="panel-title">🕐 {t("Date & Time")}</div>',
+        st.markdown('<div class="panel-title">🕐 Date & Time</div>',
                     unsafe_allow_html=True)
         now = datetime.now()
         win = available_window()
         sel_date = st.date_input(
-            t("Date"),
+            "Date",
             value=win.today,
             min_value=win.min_date,
             max_value=win.max_date,
-            help=t("Past dates use ERA5 reanalysis; today and future dates use the forecast model."),
+            help="Past dates use ERA5 reanalysis; today and future dates use "
+                 "the forecast model.",
         )
         sel_time = st.time_input(
-            t("Local time at that location"),
+            "Local time at that location",
             value=dtime(now.hour, 0),
             step=60,
-            help=t("Click the field or type the hour as HH:MM. Weather is hourly, so minutes are ignored."),
+            help="Click the field or type the hour as HH:MM. "
+                 "Weather is hourly, so minutes are ignored.",
         )
         dt_sel = datetime.combine(sel_date, sel_time)
-        if current_lang() == "de":
-            st.caption(
-                f"📅 Wetterdaten verfügbar **{win.min_date:%Y-%m-%d} → "
-                f"{win.max_date:%Y-%m-%d}** — ERA5-Archiv bis gestern, "
-                f"Vorhersage bis heute +15. Die Zeitzone wird automatisch "
-                f"aus den Koordinaten bestimmt."
-            )
-        else:
-            st.caption(
-                f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
-                f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "
-                f"forecast to today +15. Timezone is resolved automatically "
-                f"from the coordinates."
-            )
+        st.caption(
+            f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
+            f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "
+            f"forecast to today +15. Timezone is resolved automatically "
+            f"from the coordinates."
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
 
         # ── Predict button ────────────────────────────────────────────────────
         predict_btn = st.button(
-            f"🌱  {t('Predict PAR')}",
+            "🌱  Predict PAR",
             use_container_width=True,
             type="primary",
         )
 
     # ── Reference coordinates ─────────────────────────────────────────────────
-    with st.expander(t("📋 Example coordinates")):
+    with st.expander("📋 Example coordinates"):
         import pandas as _pd
         _coords = _pd.DataFrame({
-            t("Location"): ["Laubsdorf DE","Nebelin DE","Paris FR",
+            "Location": ["Laubsdorf DE","Nebelin DE","Paris FR",
                          "Cairo EG","Tokyo JP","São Paulo BR"],
             "Lat":  [51.6872, 53.1183, 48.8566, 30.0444, 35.6762, -23.5505],
             "Lon":  [14.4143, 11.7461,  2.3522, 31.2357,139.6503, -46.6333],
             "Alt m": [84, 50, 35, 23, 40, 760],
         })
         st.dataframe(_coords, hide_index=True, use_container_width=True)
-        st.caption(t("Right-click on Google Maps → copy coordinates."))
+        st.caption("Right-click on Google Maps → copy coordinates.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HANDLE PREDICT CLICK (runs before right column renders)
@@ -227,7 +221,7 @@ with left:
 if predict_btn:
     progress = st.empty()
     with progress.container():
-        with st.spinner(t("⏳ Fetching weather from Open-Meteo…")):
+        with st.spinner("⏳ Fetching weather from Open-Meteo…"):
             try:
                 # One request: the point value and the day series share a source.
                 weather     = fetch_weather(lat, lon, dt_sel)
@@ -239,14 +233,14 @@ if predict_btn:
                 st.stop()
             except WeatherServiceError as e:
                 with right:
-                    st.error(f"{t('❌ Weather data unavailable:')} {e}")
+                    st.error(f"❌ Weather data unavailable: {e}")
                 st.stop()
             except Exception as e:
                 with right:
-                    st.error(f"{t('❌ Weather API error:')} {e}")
+                    st.error(f"❌ Weather API error: {e}")
                 st.stop()
 
-        with st.spinner(t("⚙️ Computing solar geometry & predicting…")):
+        with st.spinner("⚙️ Computing solar geometry & predicting…"):
             try:
                 feat, is_day = compute_features(
                     lat, lon, alt, dt_sel, weather, tz_str
@@ -254,7 +248,7 @@ if predict_btn:
                 par_val = predict_par(feat) if is_day else 0.0
             except Exception as e:
                 with right:
-                    st.error(f"{t('❌ Prediction error:')} {e}")
+                    st.error(f"❌ Prediction error: {e}")
                 st.stop()
 
     progress.empty()
@@ -288,19 +282,18 @@ with right:
     res = st.session_state.normal_result
 
     if res is None:
-        _welcome_body = ("""Enter <strong style="color:#2ecc71">coordinates</strong>
+        st.markdown("""
+        <div class="welcome-card">
+            <div style="font-size:3rem;margin-bottom:1rem">🌱</div>
+            <div style="font-size:1.15rem;font-weight:700;color:#fff;
+                        margin-bottom:.8rem">Ready to predict PAR</div>
+            <div style="font-size:.9rem;line-height:1.75">
+                Enter <strong style="color:#2ecc71">coordinates</strong>
                 and <strong style="color:#2ecc71">date/time</strong> on the left,<br>
                 then click <strong style="color:#2ecc71">Predict PAR</strong>.<br><br>
                 Weather is fetched <em>automatically</em> for any location on
                 Earth — any date from <strong style="color:#2ecc71">1940</strong>
-                up to <strong style="color:#2ecc71">15 days ahead</strong>.""")
-        st.markdown(f"""
-        <div class="welcome-card">
-            <div style="font-size:3rem;margin-bottom:1rem">🌱</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;
-                        margin-bottom:.8rem">{t("Ready to predict PAR")}</div>
-            <div style="font-size:.9rem;line-height:1.75">
-                {t_block("normal.welcome_card", _welcome_body)}
+                up to <strong style="color:#2ecc71">15 days ahead</strong>.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -324,38 +317,40 @@ with right:
         )
 
         # ── Where these numbers come from ─────────────────────────────────────
-        _matched = f"{t('Matched hour:')} {res['matched_time'].replace('T', ' ')} {t('local.')}"
+        _matched = f"Matched hour: {res['matched_time'].replace('T', ' ')} local."
         if res["source"] == "archive":
             st.info(
-                f"📜 **{res['source_label']}** {t('— modelled, gridded reanalysis, not station measurements.')} {_matched}"
+                f"📜 **{res['source_label']}** — modelled, gridded reanalysis, "
+                f"not station measurements. {_matched}"
             )
         elif res["horizon"] == 0:
             st.caption(f"🛰️ {res['source_label']} · {_matched}")
         else:
             st.info(
-                f"🔮 **{res['source_label']}** {t('— forecast uncertainty grows with the horizon.')} {_matched}"
+                f"🔮 **{res['source_label']}** — forecast uncertainty grows "
+                f"with the horizon. {_matched}"
             )
 
         if res["missing"]:
             st.warning(
-                t("⚠️ Open-Meteo had no value for:") + " "
+                "⚠️ Open-Meteo had no value for: "
                 + ", ".join(res["missing"])
-                + " " + t("— typical values were used for those inputs.")
+                + " — typical values were used for those inputs."
             )
 
         if not is_day:
             st.info(
-                t("🌙 **Night-time** — sun is below the horizon. PAR = 0."),
+                "🌙 **Night-time** — sun is below the horizon. PAR = 0.",
                 icon="🌑",
             )
 
         # ── Weather pills ─────────────────────────────────────────────────────
         pills = [
-            (f"{w['GHI_RC_01']:.0f}",  t("GHI"),       "W/m²"),
-            (f"{w['Temp_WS']:.1f}",    t("Temp"),       "°C"),
-            (f"{w['RH_WS']:.0f}",      t("Humidity"),   "%"),
-            (f"{w['PREC_INT_WS']:.1f}",t("Precip."),    "mm/h"),
-            (f"{float(ft['clearness_kt'].iloc[0]):.2f}", t("Clearness"), "kt"),
+            (f"{w['GHI_RC_01']:.0f}",  "GHI",       "W/m²"),
+            (f"{w['Temp_WS']:.1f}",    "Temp",       "°C"),
+            (f"{w['RH_WS']:.0f}",      "Humidity",   "%"),
+            (f"{w['PREC_INT_WS']:.1f}","Precip.",    "mm/h"),
+            (f"{float(ft['clearness_kt'].iloc[0]):.2f}", "Clearness", "kt"),
         ]
         p_cols = st.columns(len(pills), gap="small")
         for col, (val, lbl, unit) in zip(p_cols, pills):
@@ -379,19 +374,19 @@ with right:
             <div class="par-card" style="border-color:{color}">
                 <div style="font-size:.72rem;color:#8892b0;text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:.4rem">
-                    🤖 {t("XGBoost Prediction")}
+                    🤖 XGBoost Prediction
                 </div>
                 <div class="par-big" style="color:{color}">{par:.1f}</div>
                 <div class="par-unit">µmol / m² / s</div>
                 <div class="par-cat" style="color:{color}">{emoji} {label}</div>
                 <hr style="border-color:#2a2d3e;margin:.8rem 0">
                 <table style="width:100%;font-size:.8rem;color:#8892b0">
-                  <tr><td>{t("Solar elevation")}</td>
+                  <tr><td>Solar elevation</td>
                       <td style="color:#fff;text-align:right">{elev:.1f}°</td></tr>
-                  <tr><td>{t("Zenith")}</td>
+                  <tr><td>Zenith</td>
                       <td style="color:#fff;text-align:right">
                           {float(ft["zenith"].iloc[0]):.1f}°</td></tr>
-                  <tr><td>{t("Airmass")}</td>
+                  <tr><td>Airmass</td>
                       <td style="color:#fff;text-align:right">
                           {float(ft["airmass"].iloc[0]):.2f}</td></tr>
                 </table>
@@ -402,7 +397,7 @@ with right:
             dli = dli_for_day(fc)
             st.markdown(f"""
             <div class="dli-card">
-                <div class="dli-lbl">{t("Daily Light Integral —")} {res['dt']:%Y-%m-%d}</div>
+                <div class="dli-lbl">Daily Light Integral — {res['dt']:%Y-%m-%d}</div>
                 <div class="dli-val">{dli}
                   <span style="font-size:.85rem;color:#8892b0">mol/m²/day</span>
                 </div>
@@ -413,26 +408,26 @@ with right:
             </div>
             <br>
             <div class="dli-card">
-                <div class="dli-lbl">{t("Solar &amp; precipitation")}</div>
+                <div class="dli-lbl">Solar &amp; precipitation</div>
                 <table style="width:100%;font-size:.82rem;
                               color:#e8eaf6;margin-top:.4rem">
                   <tr>
-                    <td style="color:#8892b0">{t("Clearness kt")}</td>
+                    <td style="color:#8892b0">Clearness kt</td>
                     <td style="text-align:right;color:#f39c12">
                         {float(ft["clearness_kt"].iloc[0]):.3f}</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">{t("DNI")}</td>
+                    <td style="color:#8892b0">DNI</td>
                     <td style="text-align:right">
                         {float(ft["dni"].iloc[0]):.0f} W/m²</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">{t("Raining")}</td>
+                    <td style="color:#8892b0">Raining</td>
                     <td style="text-align:right">
-                        {t("Yes 🌧️") if ft["is_raining"].iloc[0] else t("No ☀️")}</td>
+                        {"Yes 🌧️" if ft["is_raining"].iloc[0] else "No ☀️"}</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">{t("Dew depression")}</td>
+                    <td style="color:#8892b0">Dew depression</td>
                     <td style="text-align:right">
                         {float(ft["dew_depression"].iloc[0]):.1f} °C</td>
                   </tr>
@@ -444,15 +439,15 @@ with right:
 
         # ── Irradiance over the selected day ──────────────────────────────────
         if res["source"] == "archive":
-            _chart_tag = t("historical")
+            _chart_tag = "historical"
         elif res["horizon"] == 0:
-            _chart_tag = t("today")
+            _chart_tag = "today"
         else:
-            _chart_tag = f"{t('forecast')} +{res['horizon']} {t('d')}"
+            _chart_tag = f"forecast +{res['horizon']} d"
         st.markdown(
             '<div style="font-size:.78rem;font-weight:700;color:#2ecc71;'
             'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.4rem">'
-            f"{t('Irradiance —')} {res['dt']:%Y-%m-%d} ({_chart_tag})</div>",
+            f"Irradiance — {res['dt']:%Y-%m-%d} ({_chart_tag})</div>",
             unsafe_allow_html=True,
         )
         par_fc = (fc["GHI"] * MCCREE_FACTOR).clip(lower=0)
@@ -460,19 +455,19 @@ with right:
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=fc["time"], y=fc["GHI"],
-            name=f"{t('GHI')} (W/m²)", fill="tozeroy",
+            name="GHI (W/m²)", fill="tozeroy",
             line=dict(color="#f39c12", width=1.5),
             fillcolor="rgba(243,156,18,.12)",
         ))
         fig.add_trace(go.Scatter(
             x=fc["time"], y=par_fc,
-            name=f"{t('PAR est.')} (µmol/m²/s)",
+            name="PAR est. (µmol/m²/s)",
             line=dict(color="#2ecc71", width=2),
         ))
         fig.add_vline(
             x=res["dt"].isoformat(), line_dash="dash",
             line_color="#ffffff", opacity=0.35,
-            annotation_text=t("selected time"),
+            annotation_text="selected time",
             annotation_position="top left",
             annotation_font_color="#aaaaaa",
         )
@@ -482,7 +477,7 @@ with right:
                 mode="markers",
                 marker=dict(size=12, color="#2ecc71",
                             line=dict(color="#fff", width=2)),
-                name=f"{t('ML')}: {par:.1f} µmol/m²/s",
+                name=f"ML: {par:.1f} µmol/m²/s",
             ))
 
         fig.update_layout(
@@ -501,12 +496,11 @@ with right:
         # ── Expandables ───────────────────────────────────────────────────────
         col_exp1, col_exp2 = st.columns(2)
         with col_exp1:
-            with st.expander(t("🔍 All computed features")):
-                _value_col = t("Value")
-                disp = ft.T.rename(columns={0: _value_col})
-                disp[_value_col] = disp[_value_col].round(5)
+            with st.expander("🔍 All computed features"):
+                disp = ft.T.rename(columns={0: "Value"})
+                disp["Value"] = disp["Value"].round(5)
                 st.dataframe(disp, use_container_width=True)
         with col_exp2:
-            with st.expander(t("🗺️ Location on map")):
+            with st.expander("🗺️ Location on map"):
                 st.map(pd.DataFrame({"lat": [res["lat"]], "lon": [res["lon"]]}),
                        zoom=7)
