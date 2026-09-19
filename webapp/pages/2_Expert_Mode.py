@@ -22,6 +22,7 @@ from core.predict  import (
 )
 from core.weather  import (fetch_weather, available_window,
                            DateOutOfRangeError, WeatherServiceError)
+from core.i18n     import t, t_block, current_lang
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -154,15 +155,15 @@ if "expert_autofetch_temp" in st.session_state:
 
     notes = []
     if fetched.get("_missing"):
-        notes.append("no Open-Meteo value for " + ", ".join(fetched["_missing"]))
+        notes.append(t("no Open-Meteo value for") + " " + ", ".join(fetched["_missing"]))
     if clamped:
-        notes.append("clamped to the input range: " + "; ".join(clamped))
+        notes.append(t("clamped to the input range:") + " " + "; ".join(clamped))
 
     status_type = "warning" if notes else "success"
     message = (
-        f"✅ Weather fetched — {fetched['_source_label']} · "
+        f"✅ {t('Weather fetched —')} {fetched['_source_label']} · "
         f"{fetched['_matched_time'].replace('T', ' ')} "
-        f"({fetched['_timezone']}). Timezone field updated."
+        f"({fetched['_timezone']}). {t('Timezone field updated.')}"
     )
     if notes:
         message += "  \n⚠️ " + " · ".join(notes) + "."
@@ -185,11 +186,11 @@ def _apply_expert_autofetch():
         st.session_state.expert_autofetch_status = ("error", f"📅 {e}")
     except WeatherServiceError as e:
         st.session_state.expert_autofetch_status = (
-            "error", f"❌ Open-Meteo fetch failed: {e}"
+            "error", f"❌ {t('Open-Meteo fetch failed:')} {e}"
         )
     except Exception as e:
         st.session_state.expert_autofetch_status = (
-            "error", f"❌ Unexpected error: {e}"
+            "error", f"❌ {t('Unexpected error:')} {e}"
         )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -246,15 +247,14 @@ def _importance_chart(importance):
 # ════════════════════════════════════════════════════════════════════════════════
 #  HEADER
 # ════════════════════════════════════════════════════════════════════════════════
-st.markdown("# ⚙️ Expert Mode — Full Sensor Input Dashboard")
+st.markdown(f"# ⚙️ {t('Expert Mode')} — {t('Full Sensor Input Dashboard')}")
 st.caption(
-    "Enter your own sensor readings for maximum accuracy · "
-    "ML prediction vs McCree baseline · Feature importance"
+    t("Enter your own sensor readings for maximum accuracy · ML prediction vs McCree baseline · Feature importance")
 )
 st.divider()
 
 if not is_model_available():
-    st.error("⚠️ Model not found. Run `git lfs pull` from the project root.")
+    st.error(t("⚠️ Model not found. Run `git lfs pull` from the project root."))
     st.stop()
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -269,72 +269,78 @@ with left:
     with st.container(border=True):
 
         # ── Location & Time ───────────────────────────────────────────────────
-        st.markdown('<div class="panel-title">📍 Location & Time</div>',
+        st.markdown(f'<div class="panel-title">📍 {t("Location & Time")}</div>',
                     unsafe_allow_html=True)
-        lat = st.number_input("Latitude (°N)",  -90.0,  90.0,
+        lat = st.number_input(t("Latitude (°N)"),  -90.0,  90.0,
                               format="%.4f", step=0.0001, key="e_lat")
-        lon = st.number_input("Longitude (°E)", -180.0, 180.0,
+        lon = st.number_input(t("Longitude (°E)"), -180.0, 180.0,
                               format="%.4f", step=0.0001, key="e_lon")
-        alt = st.number_input("Altitude (m)",    0.0, 8848.0,
+        alt = st.number_input(t("Altitude (m)"),    0.0, 8848.0,
                               step=1.0, key="e_alt")
         # No default: auto-fetch writes the real zone into e_tz.
-        tz  = st.text_input("Timezone (IANA)", key="e_tz",
-                            help="Filled in automatically by auto-fetch.")
+        tz  = st.text_input(t("Timezone (IANA)"), key="e_tz",
+                            help=t("Filled in automatically by auto-fetch."))
 
         # No positional default: session_state already seeds these keys, and
         # passing both makes Streamlit warn.
         sel_date = st.date_input(
-            "Date",
+            t("Date"),
             key="e_date",
             min_value=_win.min_date,
             max_value=_win.max_date,
-            help="Past dates use ERA5 reanalysis; today and future dates use "
-                 "the forecast model.",
+            help=t("Past dates use ERA5 reanalysis; today and future dates use the forecast model."),
         )
         sel_time = st.time_input(
-            "Local time",
+            t("Local time"),
             step=60,
             key="e_time",
-            help="Click the field or type the hour as HH:MM. "
-                 "Weather is hourly, so minutes are ignored.",
+            help=t("Click the field or type the hour as HH:MM. Weather is hourly, so minutes are ignored."),
         )
         dt_sel = datetime.combine(sel_date, sel_time)
-        st.caption(
-            f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
-            f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "
-            f"prediction works for any date — solar geometry is computed "
-            f"locally, not fetched."
-        )
+        if current_lang() == "de":
+            st.caption(
+                f"🌦️ Der Auto-Abruf deckt **{_win.min_date:%Y-%m-%d} → "
+                f"{_win.max_date:%Y-%m-%d}** ab. Bei manuell eingegebenen "
+                f"Messwerten funktioniert die Vorhersage für jedes Datum — "
+                f"der Sonnenstand wird lokal berechnet, nicht abgerufen."
+            )
+        else:
+            st.caption(
+                f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
+                f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "
+                f"prediction works for any date — solar geometry is computed "
+                f"locally, not fetched."
+            )
 
         # ── Solar Irradiance ──────────────────────────────────────────────────
-        st.markdown('<div class="panel-title">☀️ Solar Irradiance</div>',
+        st.markdown(f'<div class="panel-title">☀️ {t("Solar Irradiance")}</div>',
                     unsafe_allow_html=True)
-        ghi = st.slider("GHI — Global Horizontal Irradiance (W/m²)",
+        ghi = st.slider(t("GHI — Global Horizontal Irradiance (W/m²)"),
                         *_RANGES["e_ghi"], step=1.0, key="e_ghi")
 
         # ── Meteorological Sensors ─────────────────────────────────────────────
-        st.markdown('<div class="panel-title">🌡️ Meteorological Sensors</div>',
+        st.markdown(f'<div class="panel-title">🌡️ {t("Meteorological Sensors")}</div>',
                     unsafe_allow_html=True)
 
         c1, c2 = st.columns(2)
         with c1:
-            temp = st.number_input("Temperature (°C)", *_RANGES["e_temp"],
+            temp = st.number_input(t("Temperature (°C)"), *_RANGES["e_temp"],
                                    step=0.1, key="e_temp")
-            rh   = st.number_input("Humidity (%)",     *_RANGES["e_rh"],
+            rh   = st.number_input(t("Humidity (%)"),     *_RANGES["e_rh"],
                                    step=0.5, key="e_rh")
-            dwp  = st.number_input("Dewpoint (°C)",    *_RANGES["e_dwp"],
+            dwp  = st.number_input(t("Dewpoint (°C)"),    *_RANGES["e_dwp"],
                                    step=0.1, key="e_dwp")
         with c2:
-            ws   = st.number_input("Wind speed (m/s)", *_RANGES["e_ws"],
+            ws   = st.number_input(t("Wind speed (m/s)"), *_RANGES["e_ws"],
                                    step=0.1, key="e_ws")
-            wd   = st.number_input("Wind dir (°)",     *_RANGES["e_wd"],
+            wd   = st.number_input(t("Wind dir (°)"),     *_RANGES["e_wd"],
                                    step=1.0, key="e_wd")
-            prec = st.number_input("Precipitation (mm/h)", *_RANGES["e_prec"],
+            prec = st.number_input(t("Precipitation (mm/h)"), *_RANGES["e_prec"],
                                    step=0.1, key="e_prec")
 
         st.markdown("<br>", unsafe_allow_html=True)
         fetch_weather_btn = st.button(
-            "🌦️  Auto-fetch weather from Open-Meteo",
+            f"🌦️  {t('Auto-fetch weather from Open-Meteo')}",
             use_container_width=True,
             type="secondary",
             on_click=_apply_expert_autofetch,
@@ -347,19 +353,19 @@ with left:
                 st.warning(status_msg)
             else:
                 st.error(status_msg)
-        predict_btn = st.button("⚙️  Predict PAR",
+        predict_btn = st.button(f"⚙️  {t('Predict PAR')}",
                                 use_container_width=True, type="primary")
 
-    with st.expander("📋 Reference coordinates"):
+    with st.expander(t("📋 Reference coordinates")):
         import pandas as _pd
         _coords = _pd.DataFrame({
-            "Location": ["Laubsdorf DE","Nebelin DE","Paris FR","Tokyo JP"],
+            t("Location"): ["Laubsdorf DE","Nebelin DE","Paris FR","Tokyo JP"],
             "Lat":  [51.6872, 53.1183, 48.8566, 35.6762],
             "Lon":  [14.4143, 11.7461,  2.3522, 139.6503],
             "Alt m": [84, 50, 35, 40],
         })
         st.dataframe(_coords, hide_index=True, use_container_width=True)
-        st.caption("Right-click Google Maps → copy lat, lon.")
+        st.caption(t("Right-click Google Maps → copy lat, lon."))
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  HANDLE PREDICT
@@ -381,7 +387,7 @@ if predict_btn:
         imp          = get_feature_importance()
     except Exception as e:
         with right:
-            st.error(f"❌ Prediction error: {e}")
+            st.error(f"{t('❌ Prediction error:')} {e}")
         st.stop()
 
     st.session_state.expert_result = {
@@ -409,17 +415,18 @@ with right:
     res = st.session_state.expert_result
 
     if res is None:
-        st.markdown("""
-        <div class="welcome-card">
-            <div style="font-size:3rem;margin-bottom:1rem">⚙️</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;
-                        margin-bottom:.8rem">Ready for expert prediction</div>
-            <div style="font-size:.9rem;line-height:1.75">
-                Enter your <strong style="color:#f39c12">sensor readings</strong>
+        _welcome_body = ("""Enter your <strong style="color:#f39c12">sensor readings</strong>
                 on the left, then click
                 <strong style="color:#f39c12">Predict PAR</strong>.<br><br>
                 Results include ML prediction, McCree comparison<br>
-                and full feature importance analysis.
+                and full feature importance analysis.""")
+        st.markdown(f"""
+        <div class="welcome-card">
+            <div style="font-size:3rem;margin-bottom:1rem">⚙️</div>
+            <div style="font-size:1.15rem;font-weight:700;color:#fff;
+                        margin-bottom:.8rem">{t("Ready for expert prediction")}</div>
+            <div style="font-size:.9rem;line-height:1.75">
+                {t_block("expert.welcome_card", _welcome_body)}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -441,7 +448,7 @@ with right:
         )
 
         if not is_day:
-            st.info("🌙 **Night-time** — sun below horizon. PAR = 0.", icon="🌑")
+            st.info(t("🌙 **Night-time** — sun below horizon. PAR = 0."), icon="🌑")
 
         # ── Three result cards ────────────────────────────────────────────────
         c1, c2, c3 = st.columns(3, gap="medium")
@@ -451,7 +458,7 @@ with right:
             st.markdown(f"""
             <div class="result-card" style="background:linear-gradient(135deg,#0d2b1a,#0f1117);
                  border-color:{col_ml}">
-                <div class="cap-lbl">🤖 ML Model (XGBoost)</div>
+                <div class="cap-lbl">🤖 {t("ML Model (XGBoost)")}</div>
                 <div class="big-num" style="color:{col_ml}">{par:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
             </div>
@@ -461,7 +468,7 @@ with right:
             st.markdown(f"""
             <div class="result-card" style="background:linear-gradient(135deg,#2d1a00,#0f1117);
                  border-color:#f39c12">
-                <div class="cap-lbl">📐 McCree Baseline</div>
+                <div class="cap-lbl">📐 {t("McCree Baseline")}</div>
                 <div class="big-num" style="color:#f39c12">{mc:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
                 <div style="color:#8892b0;font-size:.75rem;margin-top:.4rem">
@@ -473,15 +480,15 @@ with right:
         with c3:
             diff = abs(par - mc)
             pct  = (diff / mc * 100) if mc > 1 else 0.0
-            sign = "ML > McCree" if par > mc else "ML < McCree"
+            sign = t("ML > McCree") if par > mc else t("ML < McCree")
             diff_color = "#2ecc71" if par > mc else "#e74c3c"
             st.markdown(f"""
             <div class="result-card" style="background:#1a1d2e; border-color:#2a2d3e">
-                <div class="cap-lbl">📊 Difference</div>
+                <div class="cap-lbl">📊 {t("Difference")}</div>
                 <div class="big-num" style="color:{diff_color}">{diff:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
                 <div style="color:#8892b0;font-size:.78rem;margin-top:.4rem">
-                    {sign}<br>({pct:.1f} % relative)
+                    {sign}<br>({pct:.1f} {t("% relative)")}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -492,42 +499,43 @@ with right:
         g1, g2 = st.columns(2)
         with g1:
             st.plotly_chart(_gauge(par, 1200, "#2ecc71",
-                                   "ML Model (µmol/m²/s)"), width='stretch')
+                                   t("ML Model (µmol/m²/s)")), width='stretch')
         with g2:
             st.plotly_chart(_gauge(mc, 1200, "#f39c12",
-                                   "McCree Estimate (µmol/m²/s)"), width='stretch')
+                                   t("McCree Estimate (µmol/m²/s)")), width='stretch')
 
         # ── Feature importance ────────────────────────────────────────────────
-        st.markdown('<div class="sec-hdr">Feature Importance</div>',
+        st.markdown(f'<div class="sec-hdr">{t("Feature Importance")}</div>',
                     unsafe_allow_html=True)
         if imp is not None:
             st.plotly_chart(_importance_chart(imp), width='stretch')
         else:
-            st.info("Feature importance not available for this model type.")
+            st.info(t("Feature importance not available for this model type."))
 
         # ── Solar geometry ────────────────────────────────────────────────────
-        st.markdown('<div class="sec-hdr">Computed Solar Geometry</div>',
+        st.markdown(f'<div class="sec-hdr">{t("Computed Solar Geometry")}</div>',
                     unsafe_allow_html=True)
         sg1, sg2, sg3, sg4 = st.columns(4)
-        sg1.metric("Zenith",      f"{float(ft['zenith'].iloc[0]):.2f}°")
-        sg2.metric("Elevation",   f"{float(ft['elevation'].iloc[0]):.2f}°")
-        sg3.metric("Airmass",     f"{float(ft['airmass'].iloc[0]):.3f}")
-        sg4.metric("Clearness kt",f"{float(ft['clearness_kt'].iloc[0]):.3f}")
+        sg1.metric(t("Zenith"),      f"{float(ft['zenith'].iloc[0]):.2f}°")
+        sg2.metric(t("Elevation"),   f"{float(ft['elevation'].iloc[0]):.2f}°")
+        sg3.metric(t("Airmass"),     f"{float(ft['airmass'].iloc[0]):.3f}")
+        sg4.metric(t("Clearness kt"),f"{float(ft['clearness_kt'].iloc[0]):.3f}")
 
         # ── Full feature table ────────────────────────────────────────────────
-        with st.expander("🔍 Full feature vector (all 22 computed values)"):
+        with st.expander(t("🔍 Full feature vector (all 22 computed values)")):
             categories = {
-                "Raw sensor":   ["GHI_RC_01","Temp_WS","RH_WS","DWP_WS","WS_WS",
+                t("Raw sensor"):   ["GHI_RC_01","Temp_WS","RH_WS","DWP_WS","WS_WS",
                                  "WD_WS","PREC_INT_WS","PREC_DIFF_WS","PREC_WS",
                                  "Temp_RC_merged","Temp_RC_01"],
-                "pvlib solar":  ["zenith","elevation","airmass","clearness_kt","dni"],
-                "Wind cyclical":["wind_sin","wind_cos"],
-                "Engineered":   ["is_raining","GHI_rolling_5min",
+                t("pvlib solar"):  ["zenith","elevation","airmass","clearness_kt","dni"],
+                t("Wind cyclical"):["wind_sin","wind_cos"],
+                t("Engineered"):   ["is_raining","GHI_rolling_5min",
                                  "temp_diff","dew_depression"],
             }
             cat_map = {c: cat for cat, cols in categories.items() for c in cols}
-            disp = ft.T.rename(columns={0: "Value"})
-            disp["Value"]    = disp["Value"].round(5)
-            disp["Category"] = disp.index.map(lambda x: cat_map.get(x, "Other"))
-            st.dataframe(disp[["Category", "Value"]], use_container_width=True,
+            _value_col = t("Value")
+            disp = ft.T.rename(columns={0: _value_col})
+            disp[_value_col] = disp[_value_col].round(5)
+            disp[t("Category")] = disp.index.map(lambda x: cat_map.get(x, t("Other")))
+            st.dataframe(disp[[t("Category"), _value_col]], use_container_width=True,
                          height=420)

@@ -6,6 +6,7 @@ import base64
 import streamlit as st
 from pathlib import Path
 from core.predict import is_model_available
+from core.i18n import t, t_block
 
 # ── Load logo SVG ────────────────────────────────────────────────────────────
 _logo_path = Path(__file__).parent / "assets" / "logo.svg"
@@ -153,13 +154,13 @@ with hero_col:
         f'<div style="text-align:center;margin-bottom:.5rem">{_logo_img}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown("""
+    st.markdown(f"""
     <div style="text-align:center">
         <h1 class="hero-title">Par<span>Predict</span></h1>
         <p class="hero-sub">
-            Nowcasting Photosynthetically Active Radiation for Agrivoltaic Systems<br>
+            {t("Nowcasting Photosynthetically Active Radiation for Agrivoltaic Systems")}<br>
             <small style="color:#5a6070">
-                Powered by XGBoost &nbsp;·&nbsp; pvlib &nbsp;·&nbsp;
+                {t("Powered by")} XGBoost &nbsp;·&nbsp; pvlib &nbsp;·&nbsp;
                 Open-Meteo &nbsp;·&nbsp; Hochschule Anhalt 2026
             </small>
         </p>
@@ -172,12 +173,11 @@ st.markdown("<br>", unsafe_allow_html=True)
 #  MODEL STATUS BANNER
 # ═══════════════════════════════════════════════════════════════════════════════
 if not is_model_available():
-    st.markdown("""
+    st.markdown(f"""
     <div class="model-warn">
-        ⚠️ <strong>Model file not found.</strong>
-        The XGBoost model is stored in Git LFS. Run
-        <code>git lfs pull</code> from the project root to download it,
-        then refresh this page.
+        ⚠️ <strong>{t("Model file not found.")}</strong>
+        {t("The XGBoost model is stored in Git LFS. Run")}
+        <code>git lfs pull</code> {t("from the project root to download it, then refresh this page.")}
     </div>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -185,57 +185,52 @@ if not is_model_available():
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MODE SELECTION CARDS  (entire card is clickable — no separate button)
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("### Choose your mode")
+st.markdown(f"### {t('Choose your mode')}")
 col_a, col_b, col_c = st.columns(3, gap="large")
 
 with col_a:
-    st.markdown("""
+    st.markdown(f"""
     <a href="Normal_Mode" target="_self" class="mode-link">
       <div class="mode-card mode-card-green">
         <div class="mode-icon">🌱</div>
-        <div class="mode-title">Normal Mode</div>
+        <div class="mode-title">{t("Normal Mode")}</div>
         <div class="mode-desc">
-            Search for any city or enter coordinates.<br>
-            Weather is fetched <em>automatically</em> from Open-Meteo —
-            any date from 1940 to 15 days ahead.
+            {t('Search for any city or enter coordinates.<br>Weather is fetched <em>automatically</em> from Open-Meteo — any date from 1940 to 15 days ahead.')}
         </div>
         <div style="margin-top:1rem">
-          <strong style="color:#2ecc71">3 inputs &nbsp;·&nbsp; One prediction</strong>
+          <strong style="color:#2ecc71">{t("3 inputs &nbsp;·&nbsp; One prediction")}</strong>
         </div>
       </div>
     </a>
     """, unsafe_allow_html=True)
 
 with col_b:
-    st.markdown("""
+    st.markdown(f"""
     <a href="Expert_Mode" target="_self" class="mode-link">
       <div class="mode-card mode-card-orange">
         <div class="mode-icon">⚙️</div>
-        <div class="mode-title">Expert Mode</div>
+        <div class="mode-title">{t("Expert Mode")}</div>
         <div style="margin:.3rem 0 .7rem 0">
-          <strong style="color:#f39c12">Full control &nbsp;·&nbsp; Full transparency</strong>
+          <strong style="color:#f39c12">{t("Full control &nbsp;·&nbsp; Full transparency")}</strong>
         </div>
         <div class="mode-desc">
-            Enter your own sensor readings for maximum accuracy.<br>
-            Inspect feature importance, McCree comparison,<br>
-            and every intermediate computed value.
+            {t('Enter your own sensor readings for maximum accuracy.<br>Inspect feature importance, McCree comparison,<br>and every intermediate computed value.')}
         </div>
       </div>
     </a>
     """, unsafe_allow_html=True)
 
 with col_c:
-    st.markdown("""
+    st.markdown(f"""
     <a href="Dataset_Upload" target="_self" class="mode-link">
       <div class="mode-card" style="border: 2px solid #3498db;">
         <div class="mode-icon">📊</div>
-        <div class="mode-title">Dataset Upload</div>
+        <div class="mode-title">{t("Dataset Upload")}</div>
         <div style="margin:.3rem 0 .7rem 0">
-          <strong style="color:#3498db">Batch analysis &nbsp;·&nbsp; Full benchmark</strong>
+          <strong style="color:#3498db">{t("Batch analysis &nbsp;·&nbsp; Full benchmark")}</strong>
         </div>
         <div class="mode-desc">
-            Upload a full time-series dataset with sensor readings and location.<br>
-            Clean it, resample it, and compare model predictions to a baseline.
+            {t('Upload a full time-series dataset with sensor readings and location.<br>Clean it, resample it, and compare model predictions to a baseline.')}
         </div>
       </div>
     </a>
@@ -246,45 +241,45 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MODE COMPARISON TABLE
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.markdown(f"""
 <div style="background:#1a1d2e;border:1px solid #2a2d3e;border-radius:14px;
             padding:1.2rem 1.6rem;margin-bottom:1.4rem">
   <table style="width:100%;border-collapse:collapse;font-size:.9rem">
     <thead>
       <tr>
         <th style="color:#8892b0;font-weight:600;padding:.4rem .8rem;
-                   text-align:left;width:22%">Feature</th>
+                   text-align:left;width:22%">{t("Feature")}</th>
         <th style="color:#2ecc71;font-weight:700;padding:.4rem .8rem;
-                   text-align:center;width:39%">🌱 Normal Mode</th>
+                   text-align:center;width:39%">🌱 {t("Normal Mode")}</th>
         <th style="color:#f39c12;font-weight:700;padding:.4rem .8rem;
-                   text-align:center;width:39%">⚙️ Expert Mode</th>
+                   text-align:center;width:39%">⚙️ {t("Expert Mode")}</th>
       </tr>
     </thead>
     <tbody style="color:#e8eaf6">
       <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Who is it for?</td>
-        <td style="padding:.45rem .8rem;text-align:center">Farmers, agronomists, general users</td>
-        <td style="padding:.45rem .8rem;text-align:center">Researchers, engineers with on-site sensors</td>
+        <td style="padding:.45rem .8rem;color:#8892b0">{t("Who is it for?")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("Farmers, agronomists, general users")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("Researchers, engineers with on-site sensors")}</td>
       </tr>
       <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Inputs required</td>
-        <td style="padding:.45rem .8rem;text-align:center">Location + Date/Time <em>(3 fields)</em></td>
-        <td style="padding:.45rem .8rem;text-align:center">All sensor readings manually <em>(17+ fields)</em></td>
+        <td style="padding:.45rem .8rem;color:#8892b0">{t("Inputs required")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t('Location + Date/Time <em>(3 fields)</em>')}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t('All sensor readings manually <em>(17+ fields)</em>')}</td>
       </tr>
       <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Weather data</td>
-        <td style="padding:.45rem .8rem;text-align:center">Auto-fetched via Open-Meteo API</td>
-        <td style="padding:.45rem .8rem;text-align:center">You enter your own sensor values</td>
+        <td style="padding:.45rem .8rem;color:#8892b0">{t("Weather data")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("Auto-fetched via Open-Meteo API")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("You enter your own sensor values")}</td>
       </tr>
       <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Accuracy</td>
-        <td style="padding:.45rem .8rem;text-align:center">Good (API weather ~hourly resolution)</td>
-        <td style="padding:.45rem .8rem;text-align:center">Maximum (real on-site measurements)</td>
+        <td style="padding:.45rem .8rem;color:#8892b0">{t("Accuracy")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("Good (API weather ~hourly resolution)")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("Maximum (real on-site measurements)")}</td>
       </tr>
       <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Results shown</td>
-        <td style="padding:.45rem .8rem;text-align:center">PAR gauge · DLI · Forecast chart · Crop advice</td>
-        <td style="padding:.45rem .8rem;text-align:center">All of Normal + feature importance · McCree comparison · full feature table</td>
+        <td style="padding:.45rem .8rem;color:#8892b0">{t("Results shown")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("PAR gauge · DLI · Forecast chart · Crop advice")}</td>
+        <td style="padding:.45rem .8rem;text-align:center">{t("All of Normal + feature importance · McCree comparison · full feature table")}</td>
       </tr>
     </tbody>
   </table>
@@ -294,31 +289,31 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 #  STATS STRIP
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.markdown(f"""
 <div class="stats-bar">
   <div class="stat-item">
     <div class="stat-val">R²&nbsp;0.99</div>
-    <div class="stat-lbl">Model Accuracy</div>
+    <div class="stat-lbl">{t("Model Accuracy")}</div>
   </div>
   <div class="stat-item">
     <div class="stat-val">15</div>
-    <div class="stat-lbl">Model Features</div>
+    <div class="stat-lbl">{t("Model Features")}</div>
   </div>
   <div class="stat-item">
-    <div class="stat-val">1 min</div>
-    <div class="stat-lbl">Native Resolution</div>
+    <div class="stat-val">{t("1 min")}</div>
+    <div class="stat-lbl">{t("Native Resolution")}</div>
   </div>
   <div class="stat-item">
     <div class="stat-val">4</div>
-    <div class="stat-lbl">Monitoring Sites</div>
+    <div class="stat-lbl">{t("Monitoring Sites")}</div>
   </div>
   <div class="stat-item">
     <div class="stat-val">~43M</div>
-    <div class="stat-lbl">Training Rows</div>
+    <div class="stat-lbl">{t("Training Rows")}</div>
   </div>
   <div class="stat-item">
-    <div class="stat-val">Global</div>
-    <div class="stat-lbl">Coverage via API</div>
+    <div class="stat-val">{t("Global")}</div>
+    <div class="stat-lbl">{t("Coverage via API")}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -326,10 +321,10 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 #  WHAT IS PAR?
 # ═══════════════════════════════════════════════════════════════════════════════
-with st.expander("📚  What is PAR and why does it matter for Agrivoltaics?"):
+with st.expander(t("📚  What is PAR and why does it matter for Agrivoltaics?")):
     left, right = st.columns(2, gap="large")
     with left:
-        st.markdown("""
+        st.markdown(t_block("home.par_left", """
 **PAR (Photosynthetically Active Radiation)**  
 is the portion of sunlight in the 400–700 nm wavelength range that plants
 use for photosynthesis.  It is measured in µmol/m²/s (quantum flux).
@@ -343,9 +338,9 @@ water consumption and yield.
 The classic McCree formula — `PAR ≈ 0.45 × GHI` — assumes a fixed spectral
 ratio and ignores clouds, rain, solar angle and atmospheric conditions.
 This leads to errors of up to **35 % nRMSE** in real deployments.
-        """)
+        """))
     with right:
-        st.markdown("""
+        st.markdown(t_block("home.par_right", """
 **This tool uses machine learning** trained on real 1-second sensor data from
 agrivoltaic monitoring stations in Germany (Laubsdorf & Nebelin, 2024–2025).
 
@@ -360,39 +355,34 @@ The model learns non-linear interactions between GHI, solar position,
 humidity, precipitation and temperature to predict PAR accurately —
 for **any location worldwide**, and for **any date** from 1940 to 15 days
 ahead, via the Open-Meteo weather API.
-        """)
+        """))
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HOW IT WORKS
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("### How it works")
-steps = [
-    ("📍", "Location",  "Enter a city name or latitude / longitude coordinates."),
-    ("🌤️", "Weather",  "Open-Meteo delivers hourly GHI, temperature, humidity, wind and precipitation — ERA5 reanalysis for past dates, the forecast model for today and the next 15 days."),
-    ("☀️", "Solar Geometry", "pvlib computes zenith angle, airmass, clearness index and DNI — the same physics used in training."),
-    ("🤖", "Predict",   "The XGBoost model infers PAR from all 22 features in milliseconds."),
-    ("🌱", "Act",       "Use the PAR estimate and DLI forecast for irrigation scheduling, crop monitoring and yield forecasting."),
-]
+st.markdown(f"### {t('How it works')}")
+steps = ["Location", "Weather", "Solar Geometry", "Predict", "Act"]
+icons = {"Location": "📍", "Weather": "🌤️", "Solar Geometry": "☀️", "Predict": "🤖", "Act": "🌱"}
 cols = st.columns(len(steps), gap="small")
-for col, (icon, title, desc) in zip(cols, steps):
+for col, step in zip(cols, steps):
     with col:
         st.markdown(f"""
         <div class="step-card">
-            <div class="step-icon">{icon}</div>
-            <div class="step-title">{title}</div>
-            <div class="step-desc">{desc}</div>
+            <div class="step-icon">{icons[step]}</div>
+            <div class="step-title">{t(f"step.{step}")}</div>
+            <div class="step-desc">{t(f"step.{step}.desc")}</div>
         </div>
         """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  FOOTER  (fixed at page bottom)
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
+st.markdown(f"""
 <div class="footer-wrap">
     ParPredict &nbsp;·&nbsp; Hochschule Anhalt &nbsp;·&nbsp;
     Data Science Master Program 2026 &nbsp;&nbsp;·&nbsp;&nbsp;
-    <strong>Developers:</strong>
+    <strong>{t("Developers:")}</strong>
     Tristan Kühn &nbsp;·&nbsp; Ethan Miska &nbsp;·&nbsp;
-    Mehdi Bey &nbsp;&nbsp;·&nbsp;&nbsp; <em>Supervisor: Hugo Sanchez</em>
+    Mehdi Bey &nbsp;&nbsp;·&nbsp;&nbsp; <em>{t("Supervisor:")} Hugo Sanchez</em>
 </div>
 """, unsafe_allow_html=True)

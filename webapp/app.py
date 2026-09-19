@@ -3,7 +3,13 @@ app.py  -  ParPredict - Navigation Router
 Entry point. Run with:  python -m streamlit run app.py
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import streamlit as st
+
+from core.i18n import language_toggle, t
 
 # ── Global page config ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -48,11 +54,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Language toggle — rendered once, in the sidebar, above the nav links.
+#    st.session_state["lang"] is then shared by every page for the rest of
+#    the session, since Streamlit re-runs this script on every interaction.
+with st.sidebar:
+    language_toggle()
+
 # ── Navigation ────────────────────────────────────────────────────────────────
 pg = st.navigation([
-    st.Page("home.py",                  title="Home",            icon="🏠"),
-    st.Page("pages/1_Normal_Mode.py",   title="Normal Mode",    icon="🌱"),
-    st.Page("pages/2_Expert_Mode.py",   title="Expert Mode",    icon="⚙️"),
-    st.Page("pages/3_Dataset_Upload.py", title="Dataset Upload", icon="📊"),
+    st.Page("home.py",                  title=t("Home"),            icon="🏠"),
+    st.Page("pages/1_Normal_Mode.py",   title=t("Normal Mode"),    icon="🌱"),
+    st.Page("pages/2_Expert_Mode.py",   title=t("Expert Mode"),    icon="⚙️"),
+    st.Page("pages/3_Dataset_Upload.py", title=t("Dataset Upload"), icon="📊"),
 ])
 pg.run()
