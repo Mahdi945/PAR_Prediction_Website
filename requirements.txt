@@ -1,9 +1,9 @@
 # PAR Predictor — Web Application Dependencies (Streamlit Cloud installs this file)
 #
-# Deliberately unpinned. Streamlit Cloud currently builds on Python 3.14, and the
-# exact versions in webapp/requirements_web.txt (numpy 1.26.4, xgboost 2.0.3, …)
-# have no 3.14 wheels — pinning them here fails the build. Those pins are the
-# tested local combination; this file is what the deployed site resolves.
+# Deliberately unpinned. Streamlit Cloud builds on Python 3.14; webapp/
+# requirements_web.txt holds the exact versions the local test suite was last
+# run against, which may not all have 3.14 wheels. This file is what the
+# deployed site actually resolves, so it tracks current releases.
 #
 # Editing this file also forces Streamlit Cloud to rebuild the environment and
 # restart the Python process. That matters after a change that adds a new name
@@ -21,3 +21,8 @@ joblib
 scikit-learn
 xgboost
 pytz
+
+# Exports on the Dataset Upload page (webapp/core/export.py).
+# pyarrow is already a Streamlit dependency; openpyxl adds .xlsx.
+openpyxl
+pyarrow

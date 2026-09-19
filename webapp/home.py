@@ -5,7 +5,7 @@ home.py  –  ParPredict · Home / Landing Page
 import base64
 import streamlit as st
 from pathlib import Path
-from core.predict import is_model_available
+from core.predict import model_status
 
 # ── Load logo SVG ────────────────────────────────────────────────────────────
 _logo_path = Path(__file__).parent / "assets" / "logo.svg"
@@ -171,13 +171,12 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MODEL STATUS BANNER
 # ═══════════════════════════════════════════════════════════════════════════════
-if not is_model_available():
-    st.markdown("""
+_status = model_status()
+if not _status.ok:
+    st.markdown(f"""
     <div class="model-warn">
-        ⚠️ <strong>Model file not found.</strong>
-        The XGBoost model is stored in Git LFS. Run
-        <code>git lfs pull</code> from the project root to download it,
-        then refresh this page.
+        ⚠️ <strong>The prediction model is not usable on this deployment.</strong><br>
+        <span style="font-size:.9rem">{_status.detail}</span>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -309,12 +308,12 @@ st.markdown("""
     <div class="stat-lbl">Native Resolution</div>
   </div>
   <div class="stat-item">
-    <div class="stat-val">4</div>
+    <div class="stat-val">2</div>
     <div class="stat-lbl">Monitoring Sites</div>
   </div>
   <div class="stat-item">
-    <div class="stat-val">~43M</div>
-    <div class="stat-lbl">Training Rows</div>
+    <div class="stat-val">190 K</div>
+    <div class="stat-lbl">Training Rows (1-min)</div>
   </div>
   <div class="stat-item">
     <div class="stat-val">Global</div>

@@ -6,7 +6,12 @@ textColor         = "#e8eaf6"
 font              = "sans serif"
 
 [server]
-maxUploadSize     = 10240
+# 200 MB ≈ 2 million one-second sensor rows. Streamlit Community Cloud gives an
+# app ~2.7 GB of RAM and the upload pipeline needs 3–4× the file size while it
+# parses, cleans and resamples; the old 10 GB limit let a large file kill the
+# container with no error message. pages/3_Dataset_Upload.py repeats this
+# number in its caption and row guard (MAX_UPLOAD_MB) — keep them in step.
+maxUploadSize     = 200
 headless          = true
 
 [browser]

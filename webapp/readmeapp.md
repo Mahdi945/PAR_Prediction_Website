@@ -188,7 +188,14 @@ This is the advanced interface.
 - see intermediate variables and diagnostics
 
 ### Dataset Upload Mode
-This page allows data upload and exploration for teams working on model validation and feature analysis.
+Upload a whole sensor file (CSV, TXT or Excel; up to 200 MB / 3 million rows) and score every minute of it:
+
+- columns are recognised from their names (English and German, e.g. `Globalstrahlung`) and can be corrected in drop-downs; only a timestamp and a GHI column are required
+- timestamps may be local time, ISO with offset, or Unix epoch; `dd.mm.yyyy` is read day-first; decimal commas are fine
+- cleaning mirrors the training notebooks: sentinels, physical ranges, night filter, duplicates, short gaps carried forward, wind averaged as a vector
+- one vectorised feature pass and one model call — about a second for 145,000 rows
+- results: cleaning report, model-vs-baseline metrics (if a measured PAR column exists), chart, training-domain check, feature importance
+- downloads: predictions, cleaned data, feature matrix (CSV / Excel / JSON / Parquet), a JSON report, or everything as ZIP
 
 ---
 

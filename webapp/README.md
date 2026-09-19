@@ -12,8 +12,11 @@ PAR Predictor is a Streamlit web application that predicts **PAR (Photosynthetic
 
 | Mode | Description |
 |---|---|
-| **Normal Mode** | Enter city/coordinates + time → weather auto-fetched → instant PAR prediction |
-| **Expert Mode** | Full manual sensor input OR editable API values → PAR + McCree comparison + feature importance |
+| **Normal Mode** | Enter coordinates + date/time (1940 → today + 15 days) → weather auto-fetched → PAR with its typical error, DLI, day curve, export |
+| **Expert Mode** | Full manual sensor input (or auto-filled from Open-Meteo) → PAR + McCree comparison + feature importance, export |
+| **Dataset Upload** | Upload a sensor file (CSV/TXT/Excel, ≤ 200 MB) → cleaned like the training data, scored per minute, compared with the baseline → download predictions, cleaned data, feature matrix and a JSON report in CSV / Excel / JSON / Parquet |
+
+Every prediction states its **typical error** (held-out MAE, ± 29 µmol/m²/s) and is checked against the **training domain** — distance to the two Brandenburg stations, and inputs outside the training range — so a visitor knows how far to trust it.
 
 ---
 
@@ -21,21 +24,30 @@ PAR Predictor is a Streamlit web application that predicts **PAR (Photosynthetic
 
 ```
 webapp/
-├── app.py                     ← Home / landing page
+├── app.py                     ← Navigation router (run this)
+├── home.py                    ← Landing page
 ├── pages/
-│   ├── 1_Normal_Mode.py       ← Simple 3-input interface
-│   └── 2_Expert_Mode.py       ← Full expert dashboard (API + Manual tabs)
+│   ├── 1_Normal_Mode.py       ← Coordinates + date/time → prediction
+│   ├── 2_Expert_Mode.py       ← Manual sensor input → prediction vs McCree
+│   └── 3_Dataset_Upload.py    ← Whole files → cleaned, scored, exported
 ├── core/
-│   ├── __init__.py
-│   ├── weather.py             ← Open-Meteo API client + geocoding
-│   ├── features.py            ← Feature engineering pipeline (mirrors training notebooks)
-│   └── predict.py             ← Model loading, PAR inference, McCree baseline
-├── assets/
-│   └── logo.svg               ← SVG logo (sun + plant + solar panel)
-├── .streamlit/
-│   └── config.toml            ← Dark theme configuration
-└── requirements_web.txt       ← Python dependencies
+│   ├── constants.py           ← McCree factor (mirror of src/constants.py)
+│   ├── weather.py             ← Open-Meteo client: archive / forecast / geocoding
+│   ├── cache.py               ← Streamlit-cached front for weather.py
+│   ├── features.py            ← Feature engineering (single row + vectorised batch)
+│   ├── predict.py             ← Model loading, training-faithful preprocessing, inference, model card
+│   ├── domain.py              ← Training-domain check (distance, out-of-range inputs)
+│   ├── export.py              ← CSV / Excel / JSON / Parquet / ZIP downloads
+│   └── dataset.py             ← Upload pipeline: detect columns, clean, aggregate, score
+├── assets/logo.svg
+├── docs/                      ← Two-page presentation (HTML + PDF)
+├── .streamlit/config.toml     ← Theme, 200 MB upload limit
+└── requirements_web.txt       ← Pinned versions the tests were run with
 ```
+
+Model files are read from the repository root (`data/results/xgboost_model_all_locations.pkl` and the
+three small `data/processed/pkl_features_GradientBoosting/*.pkl` files: feature names, training medians,
+clip bounds). `data/results/xgboost_metrics_all_locations.pkl` supplies the model card when present.
 
 **External dependencies at runtime:**
 
@@ -125,7 +137,7 @@ Expert Mode still accepts manually entered readings for any date at all.
 
 **Limitations:**
 
-- The model was trained on temperate-climate German data. Predictions for tropical, desert or polar climates may be less accurate until the model is retrained with data from those regions.
+- The model was trained on temperate-climate German data (two stations in Brandenburg, April 2024 – May 2025). Predictions elsewhere are extrapolations — the app measures the distance to the nearest training station and flags any input outside the training range, but it cannot make the model know a climate it never saw.
 - ERA5 is a modelled, gridded reanalysis (~25 km), not a station measurement — historical predictions inherit its spatial smoothing.
 - Forecast accuracy degrades with the horizon; a +15-day GHI is a weather forecast, not a measurement.
 

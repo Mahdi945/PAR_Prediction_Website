@@ -16,11 +16,13 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, date, time as dtime
 
-from core.weather   import (fetch_weather, available_window,
-                            DateOutOfRangeError, WeatherServiceError)
+from core.weather   import available_window
+from core.cache     import fetch_weather, DateOutOfRangeError, WeatherServiceError
 from core.features  import compute_features
-from core.predict   import predict_par, is_model_available
+from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
+from core.domain    import check_location, check_features, describe
+from core.export    import download_bar, to_json_bytes, file_name
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -126,9 +128,11 @@ st.caption("Enter coordinates · Weather from Open-Meteo (1940 → today +15 day
            "· Predicted by XGBoost")
 st.divider()
 
-if not is_model_available():
-    st.error("⚠️ Model not found. Run `git lfs pull` from the project root.")
+_status = model_status()
+if not _status.ok:
+    st.error(f"⚠️ The prediction model is not usable here. {_status.detail}")
     st.stop()
+_card = model_card()
 
 # ════════════════════════════════════════════════════════════════════════════════
 #  MAIN LAYOUT: inputs (left 30%) | results (right 70%)
@@ -253,6 +257,10 @@ if predict_btn:
 
     progress.empty()
 
+    # Has the model seen conditions like these? Two Brandenburg stations, 2024–2025.
+    _loc_check = check_location(lat, lon)
+    _domain    = describe(_loc_check, check_features(feat) if is_day else [])
+
     st.session_state.normal_result = {
         "par": par_val, "weather": weather, "features": feat,
         "is_day": is_day, "forecast": forecast_df,
@@ -262,6 +270,9 @@ if predict_btn:
         "horizon":      weather["_horizon_days"],
         "matched_time": weather["_matched_time"],
         "missing":      weather["_missing"],
+        "domain":       _domain,
+        "nearest":      _loc_check.nearest,
+        "distance_km":  _loc_check.distance_km,
     }
 
     # Auto-scroll to results section
@@ -338,6 +349,9 @@ with right:
                 + " — typical values were used for those inputs."
             )
 
+        for _note in res.get("domain", []):
+            st.warning(f"🧭 {_note}")
+
         if not is_day:
             st.info(
                 "🌙 **Night-time** — sun is below the horizon. PAR = 0.",
@@ -370,6 +384,13 @@ with right:
 
         with c_par:
             elev = float(ft["elevation"].iloc[0])
+            _mae   = _card["test_mae"]
+            _ntest = _card["n_test"]
+            _err_line = (
+                f'<div style="font-size:.8rem;color:#8892b0;margin-top:.35rem" '
+                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
+                f'typical error ± {_mae:.0f} µmol/m²/s</div>'
+            ) if is_day else ""
             st.markdown(f"""
             <div class="par-card" style="border-color:{color}">
                 <div style="font-size:.72rem;color:#8892b0;text-transform:uppercase;
@@ -378,6 +399,7 @@ with right:
                 </div>
                 <div class="par-big" style="color:{color}">{par:.1f}</div>
                 <div class="par-unit">µmol / m² / s</div>
+                {_err_line}
                 <div class="par-cat" style="color:{color}">{emoji} {label}</div>
                 <hr style="border-color:#2a2d3e;margin:.8rem 0">
                 <table style="width:100%;font-size:.8rem;color:#8892b0">
@@ -504,3 +526,58 @@ with right:
             with st.expander("🗺️ Location on map"):
                 st.map(pd.DataFrame({"lat": [res["lat"]], "lon": [res["lon"]]}),
                        zoom=7)
+
+        # ── Export ────────────────────────────────────────────────────────────
+        with st.expander("⬇ Export this prediction"):
+            _summary = pd.DataFrame([{
+                "timestamp_local":      res["dt"],
+                "timezone":             res["tz"],
+                "latitude":             res["lat"],
+                "longitude":            res["lon"],
+                "altitude_m":           res["alt"],
+                "weather_source":       res["source_label"],
+                "matched_hour_local":   res["matched_time"],
+                "GHI_W_m2":             w.get("GHI_RC_01"),
+                "temperature_C":        w.get("Temp_WS"),
+                "humidity_pct":         w.get("RH_WS"),
+                "dew_point_C":          w.get("DWP_WS"),
+                "wind_speed_m_s":       w.get("WS_WS"),
+                "wind_direction_deg":   w.get("WD_WS"),
+                "precipitation_mm_h":   w.get("PREC_INT_WS"),
+                "solar_elevation_deg":  float(ft["elevation"].iloc[0]),
+                "clearness_index":      float(ft["clearness_kt"].iloc[0]),
+                "is_daytime":           bool(is_day),
+                "PAR_model_umol_m2_s":  par,
+                "PAR_mccree_umol_m2_s": float(w.get("GHI_RC_01", 0.0)) * MCCREE_FACTOR,
+                "typical_error_umol_m2_s": _card["test_mae"],
+                "DLI_mccree_mol_m2_day": dli,
+                "nearest_training_station": res.get("nearest"),
+                "distance_to_training_km":  res.get("distance_km"),
+            }])
+            st.caption("Prediction summary — one row with inputs, sources and both estimates")
+            download_bar(_summary, "prediction", key="nm_dl_summary", label="Summary",
+                         formats=["csv", "xlsx", "json"])
+            st.caption("Irradiance over the selected day — hourly GHI, temperature and rain from Open-Meteo")
+            download_bar(fc, "day_series", key="nm_dl_day", label="Day series")
+            st.caption("All 22 computed features — what the model actually saw")
+            download_bar(ft, "features", key="nm_dl_features", label="Features",
+                         formats=["csv", "xlsx", "json"])
+            _report = {
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "request":  {"latitude": res["lat"], "longitude": res["lon"], "altitude_m": res["alt"],
+                             "local_time": res["dt"], "timezone": res["tz"]},
+                "weather":  {k: v for k, v in w.items() if not k.startswith("_")},
+                "weather_source": {"kind": res["source"], "label": res["source_label"],
+                                   "matched_hour": res["matched_time"], "horizon_days": res["horizon"],
+                                   "substituted_inputs": res["missing"]},
+                "prediction": {"PAR_model_umol_m2_s": par,
+                               "PAR_mccree_umol_m2_s": float(w.get("GHI_RC_01", 0.0)) * MCCREE_FACTOR,
+                               "is_daytime": bool(is_day), "DLI_mccree_mol_m2_day": dli},
+                "domain_check": {"notes": res.get("domain", []), "nearest_training_station": res.get("nearest"),
+                                 "distance_km": res.get("distance_km")},
+                "features": ft.iloc[0].to_dict(),
+                "model": _card,
+            }
+            st.download_button("⬇ Full report · JSON", data=lambda: to_json_bytes(_report),
+                               file_name=file_name("report", "json"), mime="application/json",
+                               key="nm_dl_report", use_container_width=True)

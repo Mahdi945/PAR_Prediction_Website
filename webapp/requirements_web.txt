@@ -1,15 +1,21 @@
 # PAR Predictor – Web Application Dependencies
 # Install with: pip install -r requirements_web.txt
-# ❗ EXACT VERSIONS — do not upgrade without testing
-# These versions are compatible with Python 3.12+ and each other
+#
+# ❗ EXACT VERSIONS — the combination the app and tests/ were last verified
+# with (Python 3.14, 2026-09-19). Streamlit Cloud installs the unpinned root
+# requirements.txt instead; these pins are for a reproducible local setup.
 
-streamlit==1.40.2
-pandas==2.2.2
-numpy==1.26.4
-pvlib==0.11.1
+streamlit==1.60.0
+pandas==3.0.2
+numpy==2.4.4
+pvlib==0.15.1
 requests==2.32.3
-plotly==5.24.1
-joblib==1.4.2
-scikit-learn==1.5.1
-xgboost==2.0.3
+plotly==6.9.0
+joblib==1.5.3
+scikit-learn==1.8.0
+xgboost==3.2.0
 pytz==2024.1
+
+# Exports (core/export.py)
+openpyxl==3.1.5      # Excel .xlsx
+pyarrow==24.0.0      # Parquet — also a Streamlit dependency

@@ -18,10 +18,12 @@ from datetime import datetime, date, time as dtime
 
 from core.features import compute_features
 from core.predict  import (
-    predict_par, mccree_estimate, get_feature_importance, is_model_available
+    predict_par, mccree_estimate, get_feature_importance, model_status, model_card
 )
-from core.weather  import (fetch_weather, available_window,
-                           DateOutOfRangeError, WeatherServiceError)
+from core.weather  import available_window
+from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceError
+from core.domain   import check_location, check_features, describe
+from core.export   import download_bar, to_json_bytes, file_name
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -253,9 +255,11 @@ st.caption(
 )
 st.divider()
 
-if not is_model_available():
-    st.error("⚠️ Model not found. Run `git lfs pull` from the project root.")
+_status = model_status()
+if not _status.ok:
+    st.error(f"⚠️ The prediction model is not usable here. {_status.detail}")
     st.stop()
+_card = model_card()
 
 # ════════════════════════════════════════════════════════════════════════════════
 #  MAIN LAYOUT: inputs (left) | results (right)
@@ -384,11 +388,15 @@ if predict_btn:
             st.error(f"❌ Prediction error: {e}")
         st.stop()
 
+    _loc_check = check_location(lat, lon)
     st.session_state.expert_result = {
         "par": par, "mc": mc, "features": feat,
         "is_day": is_day, "imp": imp,
         "inputs": weather,
         "lat": lat, "lon": lon, "alt": alt, "dt": dt_sel, "tz": tz,
+        "domain":      describe(_loc_check, check_features(feat) if is_day else []),
+        "nearest":     _loc_check.nearest,
+        "distance_km": _loc_check.distance_km,
     }
 
     # Auto-scroll to results
@@ -440,6 +448,9 @@ with right:
             f"**{res['dt'].strftime('%Y-%m-%d %H:%M')}**"
         )
 
+        for _note in res.get("domain", []):
+            st.warning(f"🧭 {_note}")
+
         if not is_day:
             st.info("🌙 **Night-time** — sun below horizon. PAR = 0.", icon="🌑")
 
@@ -448,12 +459,20 @@ with right:
 
         with c1:
             col_ml = "#2ecc71" if is_day else "#3498db"
+            _mae   = _card["test_mae"]
+            _ntest = _card["n_test"]
+            _err_line = (
+                f'<div style="color:#8892b0;font-size:.75rem;margin-top:.4rem" '
+                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
+                f'typical error ± {_mae:.0f} µmol/m²/s</div>'
+            ) if is_day else ""
             st.markdown(f"""
             <div class="result-card" style="background:linear-gradient(135deg,#0d2b1a,#0f1117);
                  border-color:{col_ml}">
                 <div class="cap-lbl">🤖 ML Model (XGBoost)</div>
                 <div class="big-num" style="color:{col_ml}">{par:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
+                {_err_line}
             </div>
             """, unsafe_allow_html=True)
 
@@ -531,3 +550,57 @@ with right:
             disp["Category"] = disp.index.map(lambda x: cat_map.get(x, "Other"))
             st.dataframe(disp[["Category", "Value"]], use_container_width=True,
                          height=420)
+
+        # ── Export ────────────────────────────────────────────────────────────
+        with st.expander("⬇ Export this prediction"):
+            _in = res["inputs"]
+            _summary = pd.DataFrame([{
+                "timestamp_local":      res["dt"],
+                "timezone":             res["tz"],
+                "latitude":             res["lat"],
+                "longitude":            res["lon"],
+                "altitude_m":           res["alt"],
+                "GHI_W_m2":             _in.get("GHI_RC_01"),
+                "temperature_C":        _in.get("Temp_WS"),
+                "humidity_pct":         _in.get("RH_WS"),
+                "dew_point_C":          _in.get("DWP_WS"),
+                "wind_speed_m_s":       _in.get("WS_WS"),
+                "wind_direction_deg":   _in.get("WD_WS"),
+                "precipitation_mm_h":   _in.get("PREC_INT_WS"),
+                "solar_elevation_deg":  float(ft["elevation"].iloc[0]),
+                "clearness_index":      float(ft["clearness_kt"].iloc[0]),
+                "is_daytime":           bool(is_day),
+                "PAR_model_umol_m2_s":  par,
+                "PAR_mccree_umol_m2_s": mc,
+                "difference_umol_m2_s": par - mc,
+                "typical_error_umol_m2_s": _card["test_mae"],
+                "nearest_training_station": res.get("nearest"),
+                "distance_to_training_km":  res.get("distance_km"),
+            }])
+            st.caption("Prediction summary — your readings, both estimates and their difference")
+            download_bar(_summary, "expert_prediction", key="em_dl_summary", label="Summary",
+                         formats=["csv", "xlsx", "json"])
+            st.caption("All 22 computed features — what the model actually saw")
+            download_bar(ft, "features", key="em_dl_features", label="Features",
+                         formats=["csv", "xlsx", "json"])
+            if imp is not None:
+                _imp_df = imp.rename("importance").rename_axis("feature").reset_index()
+                st.caption("Feature importance of the deployed model")
+                download_bar(_imp_df, "feature_importance", key="em_dl_importance",
+                             label="Importance", formats=["csv", "xlsx", "json"])
+            _report = {
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "request":  {"latitude": res["lat"], "longitude": res["lon"], "altitude_m": res["alt"],
+                             "local_time": res["dt"], "timezone": res["tz"]},
+                "inputs":   dict(_in),
+                "prediction": {"PAR_model_umol_m2_s": par, "PAR_mccree_umol_m2_s": mc,
+                               "difference_umol_m2_s": par - mc, "is_daytime": bool(is_day)},
+                "domain_check": {"notes": res.get("domain", []), "nearest_training_station": res.get("nearest"),
+                                 "distance_km": res.get("distance_km")},
+                "features": ft.iloc[0].to_dict(),
+                "feature_importance": imp.to_dict() if imp is not None else None,
+                "model": _card,
+            }
+            st.download_button("⬇ Full report · JSON", data=lambda: to_json_bytes(_report),
+                               file_name=file_name("expert_report", "json"), mime="application/json",
+                               key="em_dl_report", use_container_width=True)
