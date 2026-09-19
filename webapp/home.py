@@ -368,7 +368,7 @@ ahead, via the Open-Meteo weather API.
 st.markdown("### How it works")
 steps = [
     ("📍", "Location",  "Enter a city name or latitude / longitude coordinates."),
-    ("🌤️", "Weather",  "Open-Meteo delivers hourly GHI, temperature, humidity, wind and precipitation — ERA5 reanalysis for past dates, the forecast model for today and the next 15 days."),
+    ("🌤️", "Weather",  "Open-Meteo supplies hourly GHI, temperature, humidity, wind and rain — 1940 to 15 days ahead."),
     ("☀️", "Solar Geometry", "pvlib computes zenith angle, airmass, clearness index and DNI — the same physics used in training."),
     ("🤖", "Predict",   "The XGBoost model infers PAR from all 22 features in milliseconds."),
     ("🌱", "Act",       "Use the PAR estimate and DLI forecast for irrigation scheduling, crop monitoring and yield forecasting."),
@@ -391,8 +391,6 @@ st.markdown("""
 <div class="footer-wrap">
     ParPredict &nbsp;·&nbsp; Hochschule Anhalt &nbsp;·&nbsp;
     Data Science Master Program 2026 &nbsp;&nbsp;·&nbsp;&nbsp;
-    <strong>Developers:</strong>
-    Tristan Kühn &nbsp;·&nbsp; Ethan Miska &nbsp;·&nbsp;
-    Mehdi Bey &nbsp;&nbsp;·&nbsp;&nbsp; <em>Supervisor: Hugo Sanchez</em>
+    <strong>Creator:</strong> Mehdi Bey
 </div>
 """, unsafe_allow_html=True)
