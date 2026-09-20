@@ -15,13 +15,15 @@ from core.predict import model_status
 # is that version, if it is ever wanted instead).
 _ASSETS = Path(__file__).parent / "assets"
 _logo_img = ""
-for _name, _mime in (("logo.png", "image/png"), ("logo.svg", "image/svg+xml")):
+for _name, _mime in (("logo_lockup.png", "image/png"),
+                     ("logo.png", "image/png"),
+                     ("logo.svg", "image/svg+xml")):
     _p = _ASSETS / _name
     if _p.exists():
         _logo_data = base64.b64encode(_p.read_bytes()).decode("ascii")
         _logo_img = (
-            f'<img src="data:{_mime};base64,{_logo_data}" alt="ParPredict logo" '
-            f'width="170" height="170" style="display:block;margin:0 auto;" />'
+            f'<img class="hero-logo" src="data:{_mime};base64,{_logo_data}" '
+            f'alt="ParPredict" />'
         )
         break
 
@@ -32,11 +34,14 @@ st.markdown("""
 .block-container { padding-top: 1.5rem; }
 
 /* Hero */
-.hero-title {
-    font-size: 3.2rem; font-weight: 900; color: #ffffff;
-    margin: 0; line-height: 1.1;
+.hero-title { margin: 0; line-height: 1; }
+/* The name is drawn in the artwork, so the heading holds the image instead of
+   type. It stays an <h1> so the page keeps a real heading for screen readers
+   and for the document outline; the alt text carries the name. */
+.hero-logo {
+    display: block; margin: 0 auto;
+    width: 100%; max-width: 330px; height: auto;
 }
-.hero-title span { color: #2ecc71; }
 .hero-sub {
     font-size: 1.1rem; color: #8892b0;
     margin: 0.6rem 0 0.2rem 0; line-height: 1.6;
@@ -123,7 +128,7 @@ div[data-testid="column"] > div:first-child {
 }
 
 @media (max-width: 900px) {
-    .hero-title { font-size: 2.2rem; }
+    .hero-logo { max-width: 250px; }
     .hero-sub { font-size: .98rem; }
     .stats-bar { flex-wrap: wrap; gap: .75rem; padding: 1rem; }
     .stat-item { width: 48%; margin-bottom: .75rem; }
@@ -141,7 +146,7 @@ div[data-testid="column"] > div:first-child {
     .mode-card { max-width: 320px; }
 }
 @media (max-width: 640px) {
-    .hero-title { font-size: 1.85rem; }
+    .hero-logo { max-width: 210px; }
     .hero-sub { font-size: .9rem; }
     .stats-bar { flex-direction: column; }
     .stat-item { width: 100%; text-align: left; }
@@ -162,14 +167,14 @@ div[data-testid="column"] > div:first-child {
 _, hero_col, _ = st.columns([1, 2.5, 1])
 with hero_col:
     st.markdown(
-        f'<div style="text-align:center;margin-bottom:.5rem">{_logo_img}</div>',
+        f'<div style="text-align:center;margin-bottom:.35rem">'
+        f'<h1 class="hero-title">{_logo_img}</h1></div>',
         unsafe_allow_html=True,
     )
     st.markdown("""
     <div style="text-align:center">
-        <h1 class="hero-title">Par<span>Predict</span></h1>
         <p class="hero-sub">
-            Nowcasting Photosynthetically Active Radiation for Agrivoltaic Systems<br>
+            Predict Photosynthetically Active Radiation for Agrivoltaic Systems<br>
             <small style="color:#5a6070">
                 Powered by XGBoost &nbsp;·&nbsp; pvlib &nbsp;·&nbsp;
                 Open-Meteo &nbsp;·&nbsp; Hochschule Anhalt 2026
