@@ -7,11 +7,23 @@ import streamlit as st
 from pathlib import Path
 from core.predict import model_status
 
-# ── Load logo SVG ────────────────────────────────────────────────────────────
-_logo_path = Path(__file__).parent / "assets" / "logo.svg"
-_logo = _logo_path.read_text(encoding="utf-8")
-_logo_data = base64.b64encode(_logo.encode("utf-8")).decode("ascii")
-_logo_img = f'<img src="data:image/svg+xml;base64,{_logo_data}" alt="ParPredict logo" width="170" height="170" style="display:block;margin:0 auto;" />'
+# ── Load the logo ────────────────────────────────────────────────────────────
+# logo.png wins when it is there, otherwise the original logo.svg — swapping
+# the artwork is then a file change, not a code change. The mark is the badge
+# alone: the hero prints "ParPredict" in type right underneath, so a lockup
+# carrying its own wordmark would show the name twice (assets/logo_lockup.png
+# is that version, if it is ever wanted instead).
+_ASSETS = Path(__file__).parent / "assets"
+_logo_img = ""
+for _name, _mime in (("logo.png", "image/png"), ("logo.svg", "image/svg+xml")):
+    _p = _ASSETS / _name
+    if _p.exists():
+        _logo_data = base64.b64encode(_p.read_bytes()).decode("ascii")
+        _logo_img = (
+            f'<img src="data:{_mime};base64,{_logo_data}" alt="ParPredict logo" '
+            f'width="170" height="170" style="display:block;margin:0 auto;" />'
+        )
+        break
 
 # ── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
