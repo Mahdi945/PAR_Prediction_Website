@@ -484,9 +484,6 @@ with right:
             f"**{res['dt'].strftime('%Y-%m-%d %H:%M')}**"
         )
 
-        for _note in res.get("domain", []):
-            st.warning(f"🧭 {_note}")
-
         if not is_day:
             st.info("🌙 **Night-time** — sun below horizon. PAR = 0.", icon="🌑")
 
@@ -586,6 +583,17 @@ with right:
             disp["Category"] = disp.index.map(lambda x: cat_map.get(x, "Other"))
             st.dataframe(disp[["Category", "Value"]], use_container_width=True,
                          height=420)
+
+        # The domain notes are deliberately quiet. They matter, but a yellow
+        # banner on every prediction outside Germany trains people to ignore
+        # banners, and the same facts are in the map caption, in this expander
+        # and in the JSON export.
+        _notes = res.get("domain", [])
+        if _notes:
+            with st.expander(f"🧭 Model domain — {len(_notes)} note"
+                             f"{'s' if len(_notes) != 1 else ''}"):
+                for _n in _notes:
+                    st.caption(_n)
 
         # ── Export ────────────────────────────────────────────────────────────
         with st.expander("⬇ Export this prediction"):

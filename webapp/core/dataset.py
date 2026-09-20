@@ -594,13 +594,11 @@ def prepare_dataset_for_prediction(
     prog(94, "Checking the training domain")
     loc = check_location(float(np.nanmedian(results["lat"])), float(np.nanmedian(results["lon"])))
     feat_dom = check_features_batch(features.loc[is_day]) if is_day.any() else check_features_batch(features.iloc[0:0])
-    warnings.extend(describe(loc, None))
-    if not feat_dom.empty:
-        top = feat_dom.iloc[0]
-        warnings.append(
-            f"{len(feat_dom)} input(s) leave the training range in some rows — e.g. {top['label']} in "
-            f"{top['pct_out']:.1f} % of daytime bins. The model extrapolates there; see the domain check."
-        )
+    # Deliberately NOT added to `warnings`: the page has a dedicated
+    # "Training-domain check" expander and the JSON report carries the same
+    # facts. A banner repeated on every file outside Germany only teaches
+    # people to skip banners, including the ones about their own data.
+    domain_notes = describe(loc, None)
 
     prog(100, "Completed")
     return {
@@ -618,7 +616,8 @@ def prepare_dataset_for_prediction(
         "mapping":         used,
         "fill_summary":    fill_summary,
         "prep_info":       prep_info,
-        "domain":          {"location": loc._asdict(), "features": feat_dom},
+        "domain":          {"location": loc._asdict(), "features": feat_dom,
+                            "notes": domain_notes},
         "resolution_seconds": res_s,
         "resample_period": resample_period,
         "timezone":        tz,

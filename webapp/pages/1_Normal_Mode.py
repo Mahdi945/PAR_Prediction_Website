@@ -409,9 +409,6 @@ with right:
                 + " — typical values were used for those inputs."
             )
 
-        for _note in res.get("domain", []):
-            st.warning(f"🧭 {_note}")
-
         if not is_day:
             st.info(
                 "🌙 **Night-time** — sun is below the horizon. PAR = 0.",
@@ -604,6 +601,17 @@ with right:
                 )
                 st.caption(f"Nearest training station: **{res.get('nearest', '—')}**, "
                            f"{res.get('distance_km', float('nan')):,.0f} km away.")
+
+        # The domain notes are deliberately quiet. They matter, but a yellow
+        # banner on every prediction outside Germany trains people to ignore
+        # banners, and the same facts are in the map caption, in this expander
+        # and in the JSON export.
+        _notes = res.get("domain", [])
+        if _notes:
+            with st.expander(f"🧭 Model domain — {len(_notes)} note"
+                             f"{'s' if len(_notes) != 1 else ''}"):
+                for _n in _notes:
+                    st.caption(_n)
 
         # ── Export ────────────────────────────────────────────────────────────
         with st.expander("⬇ Export this prediction"):
