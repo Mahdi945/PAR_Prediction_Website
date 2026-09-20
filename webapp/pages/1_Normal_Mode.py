@@ -23,7 +23,8 @@ from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe
 from core.export    import download_bar, to_json_bytes, file_name
-from core.places    import place_picker, local_clock, local_now, reference_timezone
+from core.places    import (place_picker, local_clock, local_now, reference_timezone,
+                            identify, KNOWN_SITES)
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -122,6 +123,16 @@ for _k, _v in {
 # A date left over from an older session moves out of the window as days pass.
 st.session_state.nm_date = min(max(st.session_state.nm_date, _win.min_date), _win.max_date)
 
+# Coordinates -> place, so a hand-typed latitude also names its location and
+# moves the clock. Re-resolved only when the coordinates actually change; a
+# timezone the visitor set themselves is left alone until they move the point.
+_point = identify(st.session_state.nm_lat, st.session_state.nm_lon)
+_at = (round(st.session_state.nm_lat, 4), round(st.session_state.nm_lon, 4))
+if _point and _point.get("timezone") and st.session_state.get("nm_tz_for") != _at:
+    st.session_state.nm_tz = _point["timezone"]
+    st.session_state.nm_tz_for = _at
+    _tz_ref = _point["timezone"]
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def par_category(par):
     if par < 50:   return "Very Low",  "#6c757d", "🌑"
@@ -173,6 +184,7 @@ with left:
             key="nm_place",
             lat_key="nm_lat", lon_key="nm_lon", alt_key="nm_alt",
             tz_key="nm_tz", date_key="nm_date", time_key="nm_time",
+            default=KNOWN_SITES[0],
         )
         if st.session_state.get("nm_place_applied"):
             st.success(f"📍 {st.session_state['nm_place_applied']}"
@@ -201,6 +213,13 @@ with left:
             step=1.0, key="nm_alt",
             help="Used for precise solar geometry. Enter 0 if unknown.",
         )
+
+        if _point:
+            st.caption(f"📍 These coordinates are in **{_point['display']}**"
+                       + (f" · {_point['timezone']}" if _point.get("timezone") else ""))
+        else:
+            st.caption("📍 This point could not be named — open sea, or the lookup "
+                       "was unavailable. The coordinates are used exactly as given.")
 
         st.markdown("<br>", unsafe_allow_html=True)
 

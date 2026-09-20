@@ -38,10 +38,31 @@ import streamlit as st
 
 from . import weather as W
 
-__all__ = ["search", "reference_timezone", "local_now", "local_hour", "local_clock",
-           "interpret", "place_picker"]
+__all__ = ["search", "reverse", "identify", "reference_timezone", "local_now",
+           "local_hour", "local_clock", "interpret", "place_picker", "KNOWN_SITES"]
 
 MAX_RESULTS = 8
+
+# Open-Meteo's geocoder only goes name -> coordinates. For the other direction
+# BigDataCloud's reverse-geocode-client endpoint is free, needs no key, and
+# returns English locality names plus the IANA zone. Best effort only: if it is
+# unreachable the app is unchanged, because the coordinates are what count.
+_REVERSE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client"
+
+# The two stations the model was trained on. Recognised directly so the default
+# location is named for what it is, rather than as the municipality a reverse
+# lookup would return (the Laubsdorf mast reverse-geocodes to Neuhausen/Spree).
+KNOWN_SITES = [
+    {"name": "Laubsdorf", "admin1": "Brandenburg", "admin2": "", "country": "Germany",
+     "country_code": "DE", "latitude": 51.68718711157154, "longitude": 14.414256224166728,
+     "elevation": 84.0, "timezone": "Europe/Berlin", "population": 0,
+     "display": "Laubsdorf, Brandenburg, Germany — training station"},
+    {"name": "Nebelin", "admin1": "Brandenburg", "admin2": "Prignitz", "country": "Germany",
+     "country_code": "DE", "latitude": 53.11833921379164, "longitude": 11.746088890223463,
+     "elevation": 50.0, "timezone": "Europe/Berlin", "population": 0,
+     "display": "Nebelin, Prignitz, Brandenburg, Germany — training station"},
+]
+KNOWN_SITE_RADIUS_KM = 2.0
 
 
 @st.cache_data(ttl=7 * 24 * 3600, show_spinner=False, max_entries=2048)
@@ -51,6 +72,68 @@ def search(query: str, max_results: int = MAX_RESULTS) -> list[dict]:
     if len(q) < 2:
         return []
     return W.geocode_city(q, max_results)
+
+
+def _km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance, used only to recognise the known stations."""
+    import math
+    r, p1, p2 = 6371.0088, math.radians(lat1), math.radians(lat2)
+    a = (math.sin((p2 - p1) / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2)
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+@st.cache_data(ttl=30 * 24 * 3600, show_spinner=False, max_entries=4096)
+def reverse(lat: float, lon: float) -> dict | None:
+    """Coordinates -> the settlement they fall in. None when it cannot be resolved.
+
+    Shaped like a forward geocoding hit so both directions can be handled the
+    same way, except that `elevation` is absent: this answers "where is this
+    point", it does not re-measure the terrain.
+    """
+    try:
+        r = W.requests.get(_REVERSE_URL, timeout=10,
+                           params={"latitude": float(lat), "longitude": float(lon),
+                                   "localityLanguage": "en"})
+        r.raise_for_status()
+        d = r.json()
+    except Exception:                       # offline, rate-limited, anything
+        return None
+
+    locality = (d.get("locality") or "").strip()
+    city     = (d.get("city") or "").strip()
+    region   = (d.get("principalSubdivision") or "").strip()
+    country  = (d.get("countryName") or "").strip()
+    if not any((locality, city, region, country)):
+        return None                         # open ocean
+
+    tz = ""
+    for item in (d.get("localityInfo") or {}).get("informative", []):
+        if item.get("description") == "time zone" and item.get("name"):
+            tz = item["name"]
+            break
+
+    parts, seen = [], set()
+    for part in (locality, city, region, country):
+        if part and part not in seen:
+            seen.add(part)
+            parts.append(part)
+    return {
+        "name": locality or city or region or country,
+        "admin1": region, "admin2": city if city != locality else "",
+        "country": country, "country_code": d.get("countryCode", "") or "",
+        "latitude": float(lat), "longitude": float(lon),
+        "elevation": None, "timezone": tz, "population": 0,
+        "display": ", ".join(parts),
+    }
+
+
+def identify(lat: float, lon: float) -> dict | None:
+    """Name the point: a training station if it is one, otherwise a reverse lookup."""
+    for site in KNOWN_SITES:
+        if _km(lat, lon, site["latitude"], site["longitude"]) <= KNOWN_SITE_RADIUS_KM:
+            return dict(site)
+    return reverse(round(float(lat), 3), round(float(lon), 3))   # ~110 m, so the cache bites
 
 
 # ── Time ─────────────────────────────────────────────────────────────────────
@@ -163,6 +246,7 @@ def place_picker(
     date_key: str | None = None,
     time_key: str | None = None,
     label: str = "Search a city or region",
+    default: dict | None = None,
 ) -> None:
     """One autocomplete box: type a place, press Enter, pick a match.
 
@@ -177,6 +261,15 @@ def place_picker(
     location" is supposed to mean.
     """
     opts_key, sel_key, note_key = f"{key}_options", f"{key}_select", f"{key}_note"
+
+    # First render: show the place the coordinate fields already point at, so
+    # the box and the numbers below it agree instead of starting blank.
+    if opts_key not in st.session_state:
+        st.session_state[opts_key] = [default] if default else []
+        if default:
+            st.session_state[sel_key] = _label(default)
+            st.session_state[f"{key}_chosen"] = default
+
     places: list[dict] = st.session_state.get(opts_key, [])
 
     def _apply(place: dict) -> None:

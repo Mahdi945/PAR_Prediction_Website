@@ -24,7 +24,8 @@ from core.weather  import available_window
 from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceError
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
-from core.places   import place_picker, local_clock, local_now, reference_timezone
+from core.places   import (place_picker, local_clock, local_now, reference_timezone,
+                           identify, KNOWN_SITES)
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -142,6 +143,15 @@ for key, value in {
 _win = available_window()
 st.session_state.e_date = min(max(st.session_state.e_date, _win.min_date),
                              _win.max_date)
+
+# Here the timezone is not just a caption: Expert Mode passes e_tz straight to
+# compute_features, so a stale zone would place the sun in the wrong part of
+# the sky. Whenever the coordinates move, the zone follows them.
+_point = identify(st.session_state.e_lat, st.session_state.e_lon)
+_at = (round(st.session_state.e_lat, 4), round(st.session_state.e_lon, 4))
+if _point and _point.get("timezone") and st.session_state.get("e_tz_for") != _at:
+    st.session_state.e_tz = _point["timezone"]
+    st.session_state.e_tz_for = _at
 
 if "expert_autofetch_temp" in st.session_state:
     fetched = st.session_state.pop("expert_autofetch_temp")
@@ -284,6 +294,7 @@ with left:
             key="em_place",
             lat_key="e_lat", lon_key="e_lon", alt_key="e_alt",
             tz_key="e_tz", date_key="e_date", time_key="e_time",
+            default=KNOWN_SITES[0],
         )
         if st.session_state.get("em_place_applied"):
             st.success(f"📍 {st.session_state['em_place_applied']} · {st.session_state['e_tz']}")
@@ -298,9 +309,13 @@ with left:
                               format="%.4f", step=0.0001, key="e_lon")
         alt = st.number_input("Altitude (m)",    0.0, 8848.0,
                               step=1.0, key="e_alt")
-        # No default: auto-fetch writes the real zone into e_tz.
+        if _point:
+            st.caption(f"📍 These coordinates are in **{_point['display']}**")
+        # No default: the zone is resolved from the coordinates above.
         tz  = st.text_input("Timezone (IANA)", key="e_tz",
-                            help="Filled in automatically by auto-fetch.")
+                            help="Set from the coordinates, and by auto-fetch. "
+                                 "Edit it only if you know better — it decides "
+                                 "where the sun is.")
 
         # No positional default: session_state already seeds these keys, and
         # passing both makes Streamlit warn.
