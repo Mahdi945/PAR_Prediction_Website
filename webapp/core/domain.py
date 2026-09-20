@@ -49,10 +49,24 @@ FEATURE_LABELS = {
     "wind_sin":       ("wind direction (sin)",   ""),
     "wind_cos":       ("wind direction (cos)",   ""),
 }
-# Features whose out-of-range values are not worth a warning: a rain intensity
-# above the 99th percentile is ordinary weather, and PREC_DIFF_WS was constant
-# in training. The wind components are bounded by construction.
-_QUIET = {"PREC_INT_WS", "PREC_DIFF_WS", "wind_sin", "wind_cos"}
+# Features that are never worth a warning. A warning should mean "this could
+# move the answer"; these cannot, and crying wolf about them teaches visitors
+# to ignore the ones that matter.
+#
+#   PREC_INT_WS   rain above the 99th percentile is ordinary weather, and
+#                 0 -> 3 mm/h moves PAR by 5 umol/m2/s (0.4 %). Open-Meteo also
+#                 reports gridded hourly precipitation, which ran ~2.6x the
+#                 stations' tipping-bucket intensity (corr 0.35-0.43), so the
+#                 comparison with the training range is not like for like.
+#   PREC_DIFF_WS  constant 0 throughout training; importance 0.0000.
+#   wind_sin/cos  bounded to [-1, 1] by construction.
+#   WS_WS         importance 0.0004 (13th of 15). Measured against the model:
+#                 1.85 -> 15 m/s moves PAR by 1.7 umol/m2/s (0.1 %). On top of
+#                 that Open-Meteo reports wind at 10 m while the station
+#                 anemometers sit lower, so its readings ran ~1.85x the
+#                 training values at both sites - a height difference, not a
+#                 unit error, and not something to alarm a visitor about.
+_QUIET = {"PREC_INT_WS", "PREC_DIFF_WS", "wind_sin", "wind_cos", "WS_WS"}
 
 
 class LocationCheck(NamedTuple):

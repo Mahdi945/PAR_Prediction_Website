@@ -369,8 +369,10 @@ with right:
         _matched = f"Matched hour: {res['matched_time'].replace('T', ' ')} local."
         if res["source"] == "archive":
             st.info(
-                f"📜 **{res['source_label']}** — modelled, gridded reanalysis, "
-                f"not station measurements. {_matched}"
+                f"📜 **{res['source_label']}** — modelled, gridded reanalysis "
+                f"(~25 km), not a station measurement. Against our two "
+                f"pyranometers ERA5 read about 9–18 % high on GHI, and PAR "
+                f"follows GHI almost one for one. {_matched}"
             )
         elif res["horizon"] == 0:
             st.caption(f"🛰️ {res['source_label']} · {_matched}")
