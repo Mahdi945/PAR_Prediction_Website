@@ -45,6 +45,18 @@ st.markdown("""
     padding-top: 0 !important;
 }
 
+/* Documentation is reference material, not a fourth thing to do, so it sits
+   below its own rule rather than in the run of working pages. */
+[data-testid="stSidebarNavItems"] li:last-child {
+    margin-top: .5rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--pp-border);
+}
+
+/* Close the gap between the nav and the Appearance control under it. */
+[data-testid="stSidebarNavSeparator"] { margin-bottom: 0 !important; }
+[data-testid="stSidebarUserContent"] { padding-top: .4rem !important; }
+
 /* Style each nav link cleanly */
 [data-testid="stSidebarNavLink"] {
     border-radius: 8px !important;
@@ -69,9 +81,10 @@ pg = st.navigation([
 ])
 
 # ── Appearance ────────────────────────────────────────────────────────────────
-# Below the navigation, so it reads as a setting rather than a destination.
+# Straight under the navigation. Streamlit already draws a rule below the nav
+# (stSidebarNavSeparator), so adding st.divider() here put two lines and a gap
+# between the pages and this control.
 with st.sidebar:
-    st.divider()
     theme.switcher()
 
 pg.run()
