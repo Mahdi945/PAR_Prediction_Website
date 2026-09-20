@@ -34,7 +34,8 @@ nudge the coordinates — the number inputs stay editable on purpose.
 from __future__ import annotations
 
 from datetime import datetime, time as dtime
-from zoneinfo import ZoneInfo
+from functools import lru_cache
+from zoneinfo import ZoneInfo, available_timezones
 
 import streamlit as st
 
@@ -51,7 +52,8 @@ except ImportError:                                  # pragma: no cover
     HAS_SEARCHBOX = False
 
 __all__ = ["search", "reverse", "identify", "reference_timezone", "local_now",
-           "local_hour", "local_clock", "interpret", "place_picker", "KNOWN_SITES"]
+           "local_hour", "local_clock", "interpret", "place_picker", "KNOWN_SITES",
+           "timezone_choices"]
 
 MAX_RESULTS = 8
 
@@ -192,6 +194,29 @@ def local_now(tz: str | None = None) -> datetime:
 def local_hour(tz: str | None = None) -> dtime:
     """Current local hour, floored — the weather API is hourly anyway."""
     return dtime(local_now(tz).hour, 0)
+
+
+@lru_cache(maxsize=1)
+def _all_timezones() -> tuple[str, ...]:
+    """Every IANA zone this interpreter knows, sorted. ~600 of them."""
+    try:
+        return tuple(sorted(available_timezones()))
+    except Exception:                       # pragma: no cover - no tz database
+        return ()
+
+
+def timezone_choices(current: str | None = None) -> list[str]:
+    """Options for a timezone picker, guaranteed to contain `current`.
+
+    A Streamlit selectbox raises if the value held in session state is not one
+    of its options, and the zone can arrive from a reverse lookup (which has
+    returned things like ``Etc/GMT+2`` over open water). Anything unexpected is
+    kept and listed first rather than silently dropped.
+    """
+    options = list(_all_timezones())
+    if current and current not in options:
+        options.insert(0, current)
+    return options
 
 
 def local_clock(tz: str | None = None) -> dtime:

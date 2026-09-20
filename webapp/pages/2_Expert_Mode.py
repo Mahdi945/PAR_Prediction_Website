@@ -25,7 +25,7 @@ from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceErro
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
 from core.places   import (place_picker, local_clock, local_now, reference_timezone,
-                           identify, KNOWN_SITES)
+                           identify, timezone_choices, KNOWN_SITES)
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -312,10 +312,11 @@ with left:
         if _point:
             st.caption(f"📍 These coordinates are in **{_point['display']}**")
         # No default: the zone is resolved from the coordinates above.
-        tz  = st.text_input("Timezone (IANA)", key="e_tz",
-                            help="Set from the coordinates, and by auto-fetch. "
-                                 "Edit it only if you know better — it decides "
-                                 "where the sun is.")
+        _tz_options = timezone_choices(st.session_state.get("e_tz"))
+        tz  = st.selectbox("Timezone (IANA)", options=_tz_options, key="e_tz",
+                           help="Set from the coordinates, and by auto-fetch. "
+                                "Type to filter the list. Change it only if you "
+                                "know better — it decides where the sun is.")
 
         # No positional default: session_state already seeds these keys, and
         # passing both makes Streamlit warn.

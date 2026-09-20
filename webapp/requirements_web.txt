@@ -23,3 +23,7 @@ pyarrow==24.0.0      # Parquet — also a Streamlit dependency
 # Live type-ahead in the place picker (core/places.py). Streamlit's own
 # widgets cannot query while the user types; this component can.
 streamlit-searchbox==0.1.24
+
+# The IANA zone list behind the timezone dropdown. Present on most Linux
+# images already; pinned here so the list is never empty.
+tzdata==2026.1

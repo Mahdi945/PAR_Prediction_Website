@@ -31,3 +31,7 @@ pyarrow
 # text_input and selectbox only rerun on Enter or blur, so neither can query
 # the geocoder while the visitor is still typing.
 streamlit-searchbox
+
+# IANA zone list behind the timezone dropdown. zoneinfo reads the system
+# database where there is one; this guarantees the list is never empty.
+tzdata
