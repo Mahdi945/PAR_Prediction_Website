@@ -536,5 +536,5 @@ def switcher(*, key: str = _KEY, location=None) -> None:
         format_func=lambda c: LANGUAGES[c],
         key=key,
         horizontal=True,
-        help="Switches the interface. The documentation page has its own switch.",
+        help="Switches the whole interface, documentation included.",
     )

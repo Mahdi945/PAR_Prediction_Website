@@ -4,8 +4,9 @@ pages/4_Documentation.py  –  ParPredict · Documentation / Dokumentation
 The user manual, in English and German. The text lives in core/docs.py; this
 page only chooses a language and lays it out.
 
-Deliberately one page rather than a site-wide translation: the interface stays
-in English, and everything a visitor might need explaining is here in both.
+It follows the sidebar language on arrival, and the switch here overrides it
+for this page alone - useful for reading a section in the other wording without
+changing the whole interface.
 """
 
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
-from core import theme
+from core import i18n, theme
 from core.docs import LANGUAGES, TITLE, INTRO, CONTENTS, sections
 
 T = theme.tokens()
@@ -66,8 +67,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Language ──────────────────────────────────────────────────────────────────
-if "doc_lang" not in st.session_state:
-    st.session_state.doc_lang = "en"
+# Arrive in whatever language the interface is in, so a German visitor is not
+# met by an English manual. The radio below still overrides it for this page:
+# doc_lang_follows remembers the interface language we last matched, so a later
+# switch in the sidebar is followed, while a choice made here is left alone.
+_ui = i18n.language()
+if "doc_lang" not in st.session_state or st.session_state.get("doc_lang_follows") != _ui:
+    st.session_state.doc_lang = _ui
+    st.session_state["doc_lang_follows"] = _ui
 
 _head, _pick = st.columns([3, 1.1], gap="medium")
 with _head:
