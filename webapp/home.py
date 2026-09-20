@@ -34,7 +34,7 @@ st.markdown("""
 .block-container { padding-top: 1.5rem; }
 
 /* Hero */
-.hero-title { margin: 0; line-height: 1; }
+.hero-title { margin: 0; line-height: 0; }
 /* The name is drawn in the artwork, so the heading holds the image instead of
    type. It stays an <h1> so the page keeps a real heading for screen readers
    and for the document outline; the alt text carries the name. */
@@ -48,7 +48,7 @@ st.markdown("""
 }
 .hero-sub {
     font-size: 1.1rem; color: #8892b0;
-    margin: 0.6rem 0 0.2rem 0; line-height: 1.6;
+    margin: 0.35rem 0 0.2rem 0; line-height: 1.6;
 }
 
 /* Mode cards */
@@ -170,13 +170,14 @@ div[data-testid="column"] > div:first-child {
 # ═══════════════════════════════════════════════════════════════════════════════
 _, hero_col, _ = st.columns([1, 2.5, 1])
 with hero_col:
+    # The logo and the tagline are ONE markdown block on purpose. As two
+    # separate st.markdown calls Streamlit inserts its own vertical gap between
+    # them, which no CSS of ours was touching - that was the space under the
+    # logo. Spacing here is the .hero-sub margin alone.
     st.markdown(
-        f'<div style="text-align:center;margin-bottom:.35rem">'
-        f'<h1 class="hero-title">{_logo_img}</h1></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("""
+        f'''
     <div style="text-align:center">
+        <h1 class="hero-title">{_logo_img}</h1>
         <p class="hero-sub">
             Predict Photosynthetically Active Radiation for Agrivoltaic Systems<br>
             <small style="color:#5a6070">
@@ -185,7 +186,7 @@ with hero_col:
             </small>
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
