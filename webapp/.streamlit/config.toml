@@ -1,9 +1,35 @@
+# ── Theme ────────────────────────────────────────────────────────────────────
+# Both appearances are defined, so Streamlit themes its own chrome - sidebar,
+# inputs, buttons, dataframes - in either one. The app's own cards follow the
+# same palette through the CSS variables in core/theme.py, which reads the
+# active appearance from st.context.theme.
+#
+# Shared across both: the brand green, and the radii/fonts.
 [theme]
-primaryColor      = "#2ecc71"
-backgroundColor   = "#0f1117"
-secondaryBackgroundColor = "#1a1d2e"
-textColor         = "#e8eaf6"
+base              = "dark"
+primaryColor      = "#2ECC71"
 font              = "sans serif"
+baseRadius        = "0.6rem"
+
+[theme.dark]
+backgroundColor          = "#0F1117"
+secondaryBackgroundColor = "#1A1D2E"
+textColor                = "#E8EAF6"
+borderColor              = "#2A2D3E"
+primaryColor             = "#2ECC71"
+linkColor                = "#3DDC84"
+
+[theme.light]
+# A warm off-white rather than pure white: the cards need to read as raised
+# against it, and #FFFFFF leaves nothing to contrast with.
+backgroundColor          = "#F6F8F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor                = "#16181D"
+borderColor              = "#DFE4DC"
+# The brand green is only 2.0:1 on white, which fails for text. Widgets that
+# use primaryColor as a fill keep it readable, so it is darkened here.
+primaryColor             = "#15803D"
+linkColor                = "#15803D"
 
 [server]
 # 200 MB ≈ 2 million one-second sensor rows. Streamlit Community Cloud gives an
@@ -18,5 +44,7 @@ headless          = true
 gatherUsageStats  = false
 
 [client]
-toolbarMode       = "minimal"   # hides Deploy button, keeps only essential controls
-# toolbarMode     = "viewer"    # hides everything including the 3-dot menu
+# Was "minimal", which hid the whole toolbar - including Settings, where
+# Streamlit's own light/dark switch lives. "auto" keeps it reachable for
+# visitors; the app also offers its own switch in the sidebar.
+toolbarMode       = "auto"

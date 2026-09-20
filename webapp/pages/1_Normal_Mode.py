@@ -23,6 +23,11 @@ from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe
 from core.export    import download_bar, to_json_bytes, file_name
+from core import theme
+
+# The palette for whichever appearance the visitor has chosen. Charts read
+# it directly; the CSS below reads it through the var(--pp-*) variables.
+T = theme.tokens()
 from core.places    import (place_picker, local_clock, local_now, reference_timezone,
                             identify, KNOWN_SITES)
 
@@ -34,42 +39,43 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+theme.inject()
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 .block-container { padding-top: 1.2rem; }
 
 .panel-title {
-    font-size: .78rem; font-weight: 700; color: #2ecc71;
+    font-size: .78rem; font-weight: 700; color: var(--pp-green-text);
     text-transform: uppercase; letter-spacing: 1.5px;
-    border-left: 3px solid #2ecc71; padding-left: .5rem;
+    border-left: 3px solid var(--pp-green); padding-left: .5rem;
     margin-bottom: .7rem;
 }
 .par-card {
-    background: linear-gradient(135deg,#0d2b1a 0%,#0f1117 100%);
+    background: var(--pp-card-green);
     border: 2px solid; border-radius: 18px;
     padding: 1.6rem; text-align: center;
 }
 .par-big  { font-size: 4rem; font-weight: 900; line-height: 1; }
-.par-unit { font-size: .88rem; color: #8892b0; margin-top: .25rem; }
+.par-unit { font-size: .88rem; color: var(--pp-muted); margin-top: .25rem; }
 .par-cat  { font-size: 1rem; font-weight: 700; margin-top: .5rem; }
 .wpill {
-    background:#1a1d2e; border:1px solid #2a2d3e; border-radius:10px;
+    background:var(--pp-surface); border:1px solid var(--pp-border); border-radius:10px;
     padding:.55rem .7rem; text-align:center;
 }
-.wpill-val { font-size:1.3rem; font-weight:800; color:#fff; }
-.wpill-lbl { font-size:.65rem; color:#8892b0; text-transform:uppercase;
+.wpill-val { font-size:1.3rem; font-weight:800; color:var(--pp-text-strong); }
+.wpill-lbl { font-size:.65rem; color:var(--pp-muted); text-transform:uppercase;
              letter-spacing:1px; }
 .dli-card {
-    background:#1a1d2e; border:1px solid #2a2d3e; border-radius:14px;
+    background:var(--pp-surface); border:1px solid var(--pp-border); border-radius:14px;
     padding:1.1rem 1.3rem;
 }
-.dli-val  { font-size:1.9rem; font-weight:900; color:#f39c12; }
-.dli-lbl  { font-size:.7rem; color:#8892b0; text-transform:uppercase;
+.dli-val  { font-size:1.9rem; font-weight:900; color:var(--pp-orange-text); }
+.dli-lbl  { font-size:.7rem; color:var(--pp-muted); text-transform:uppercase;
             letter-spacing:1px; }
 .welcome-card {
-    background:#1a1d2e; border:1px dashed #2a2d3e; border-radius:16px;
-    padding:4rem 2rem; text-align:center; color:#8892b0; margin-top: 1rem;
+    background:var(--pp-surface); border:1px dashed var(--pp-border); border-radius:16px;
+    padding:4rem 2rem; text-align:center; color:var(--pp-muted); margin-top: 1rem;
 }
 
 @media (max-width: 900px) {
@@ -135,11 +141,11 @@ if _point and _point.get("timezone") and st.session_state.get("nm_tz_for") != _a
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def par_category(par):
-    if par < 50:   return "Very Low",  "#6c757d", "🌑"
-    if par < 200:  return "Low",       "#3498db", "🌥️"
-    if par < 400:  return "Moderate",  "#2ecc71", "⛅"
-    if par < 700:  return "Good",      "#f39c12", "🌤️"
-    return             "High",         "#e74c3c", "☀️"
+    if par < 50:   return "Very Low",  "var(--pp-grey)", "🌑"
+    if par < 200:  return "Low",       "var(--pp-blue)", "🌥️"
+    if par < 400:  return "Moderate",  "var(--pp-green)", "⛅"
+    if par < 700:  return "Good",      "var(--pp-orange)", "🌤️"
+    return             "High",         "var(--pp-red)", "☀️"
 
 def dli_for_day(fc_df):
     # DLI [mol/m²/day] = Σ_hours ( PAR [µmol/m²/s] × 3600 s ) / 1e6
@@ -353,15 +359,15 @@ with right:
         st.markdown("""
         <div class="welcome-card">
             <div style="font-size:3rem;margin-bottom:1rem">🌱</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;
+            <div style="font-size:1.15rem;font-weight:700;color:var(--pp-text-strong);
                         margin-bottom:.8rem">Ready to predict PAR</div>
             <div style="font-size:.9rem;line-height:1.75">
-                Enter <strong style="color:#2ecc71">coordinates</strong>
-                and <strong style="color:#2ecc71">date/time</strong> on the left,<br>
-                then click <strong style="color:#2ecc71">Predict PAR</strong>.<br><br>
+                Enter <strong style="color:var(--pp-green-text)">coordinates</strong>
+                and <strong style="color:var(--pp-green-text)">date/time</strong> on the left,<br>
+                then click <strong style="color:var(--pp-green-text)">Predict PAR</strong>.<br><br>
                 Weather is fetched <em>automatically</em> for any location on
-                Earth — any date from <strong style="color:#2ecc71">1940</strong>
-                up to <strong style="color:#2ecc71">15 days ahead</strong>.
+                Earth — any date from <strong style="color:var(--pp-green-text)">1940</strong>
+                up to <strong style="color:var(--pp-green-text)">15 days ahead</strong>.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -443,13 +449,13 @@ with right:
             _mae   = _card["test_mae"]
             _ntest = _card["n_test"]
             _err_line = (
-                f'<div style="font-size:.8rem;color:#8892b0;margin-top:.35rem" '
+                f'<div style="font-size:.8rem;color:var(--pp-muted);margin-top:.35rem" '
                 f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
                 f'typical error ± {_mae:.0f} µmol/m²/s</div>'
             ) if is_day else ""
             st.markdown(f"""
             <div class="par-card" style="border-color:{color}">
-                <div style="font-size:.72rem;color:#8892b0;text-transform:uppercase;
+                <div style="font-size:.72rem;color:var(--pp-muted);text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:.4rem">
                     🤖 XGBoost Prediction
                 </div>
@@ -457,15 +463,15 @@ with right:
                 <div class="par-unit">µmol / m² / s</div>
                 {_err_line}
                 <div class="par-cat" style="color:{color}">{emoji} {label}</div>
-                <hr style="border-color:#2a2d3e;margin:.8rem 0">
-                <table style="width:100%;font-size:.8rem;color:#8892b0">
+                <hr style="border-color:var(--pp-border);margin:.8rem 0">
+                <table style="width:100%;font-size:.8rem;color:var(--pp-muted)">
                   <tr><td>Solar elevation</td>
-                      <td style="color:#fff;text-align:right">{elev:.1f}°</td></tr>
+                      <td style="color:var(--pp-text-strong);text-align:right">{elev:.1f}°</td></tr>
                   <tr><td>Zenith</td>
-                      <td style="color:#fff;text-align:right">
+                      <td style="color:var(--pp-text-strong);text-align:right">
                           {float(ft["zenith"].iloc[0]):.1f}°</td></tr>
                   <tr><td>Airmass</td>
-                      <td style="color:#fff;text-align:right">
+                      <td style="color:var(--pp-text-strong);text-align:right">
                           {float(ft["airmass"].iloc[0]):.2f}</td></tr>
                 </table>
             </div>
@@ -477,10 +483,10 @@ with right:
             <div class="dli-card">
                 <div class="dli-lbl">Daily Light Integral — {res['dt']:%Y-%m-%d}</div>
                 <div class="dli-val">{dli}
-                  <span style="font-size:.85rem;color:#8892b0">mol/m²/day</span>
+                  <span style="font-size:.85rem;color:var(--pp-muted)">mol/m²/day</span>
                 </div>
                 <div style="margin-top:.7rem;font-size:.86rem;
-                            color:#e8eaf6;line-height:1.6">
+                            color:var(--pp-text);line-height:1.6">
                     {crop_advice(dli)}
                 </div>
             </div>
@@ -488,24 +494,24 @@ with right:
             <div class="dli-card">
                 <div class="dli-lbl">Solar &amp; precipitation</div>
                 <table style="width:100%;font-size:.82rem;
-                              color:#e8eaf6;margin-top:.4rem">
+                              color:var(--pp-text);margin-top:.4rem">
                   <tr>
-                    <td style="color:#8892b0">Clearness kt</td>
-                    <td style="text-align:right;color:#f39c12">
+                    <td style="color:var(--pp-muted)">Clearness kt</td>
+                    <td style="text-align:right;color:var(--pp-orange-text)">
                         {float(ft["clearness_kt"].iloc[0]):.3f}</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">DNI</td>
+                    <td style="color:var(--pp-muted)">DNI</td>
                     <td style="text-align:right">
                         {float(ft["dni"].iloc[0]):.0f} W/m²</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">Raining</td>
+                    <td style="color:var(--pp-muted)">Raining</td>
                     <td style="text-align:right">
                         {"Yes 🌧️" if ft["is_raining"].iloc[0] else "No ☀️"}</td>
                   </tr>
                   <tr>
-                    <td style="color:#8892b0">Dew depression</td>
+                    <td style="color:var(--pp-muted)">Dew depression</td>
                     <td style="text-align:right">
                         {float(ft["dew_depression"].iloc[0]):.1f} °C</td>
                   </tr>
@@ -523,7 +529,7 @@ with right:
         else:
             _chart_tag = f"forecast +{res['horizon']} d"
         st.markdown(
-            '<div style="font-size:.78rem;font-weight:700;color:#2ecc71;'
+            '<div style="font-size:.78rem;font-weight:700;color:var(--pp-green-text);'
             'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.4rem">'
             f"Irradiance — {res['dt']:%Y-%m-%d} ({_chart_tag})</div>",
             unsafe_allow_html=True,
@@ -534,38 +540,38 @@ with right:
         fig.add_trace(go.Scatter(
             x=fc["time"], y=fc["GHI"],
             name="GHI (W/m²)", fill="tozeroy",
-            line=dict(color="#f39c12", width=1.5),
-            fillcolor="rgba(243,156,18,.12)",
+            line=dict(color=T["orange"], width=1.5),
+            fillcolor=T["orange-soft"],
         ))
         fig.add_trace(go.Scatter(
             x=fc["time"], y=par_fc,
             name="PAR est. (µmol/m²/s)",
-            line=dict(color="#2ecc71", width=2),
+            line=dict(color=T["green"], width=2),
         ))
         fig.add_vline(
             x=res["dt"].isoformat(), line_dash="dash",
-            line_color="#ffffff", opacity=0.35,
+            line_color=T["text-strong"], opacity=0.35,
             annotation_text="selected time",
             annotation_position="top left",
-            annotation_font_color="#aaaaaa",
+            annotation_font_color=T["muted"],
         )
         if par > 0:
             fig.add_trace(go.Scatter(
                 x=[res["dt"]], y=[par],
                 mode="markers",
-                marker=dict(size=12, color="#2ecc71",
-                            line=dict(color="#fff", width=2)),
+                marker=dict(size=12, color=T["green"],
+                            line=dict(color=T["text-strong"], width=2)),
                 name=f"ML: {par:.1f} µmol/m²/s",
             ))
 
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(26,29,46,0.7)",
-            font=dict(color="#e8eaf6"),
+            plot_bgcolor=T["chart-plot"],
+            font=dict(color=T["text"]),
             height=270,
             margin=dict(l=0, r=0, t=10, b=0),
             xaxis=dict(showgrid=False, tickformat="%H:%M"),
-            yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+            yaxis=dict(showgrid=True, gridcolor=T["chart-grid"]),
             legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=10)),
             hovermode="x unified",
         )
@@ -590,7 +596,7 @@ with right:
                     pd.DataFrame({"lat": [res["lat"]], "lon": [res["lon"]]}),
                     latitude="lat", longitude="lon",
                     size=({"Field": 12, "Town": 90, "Region": 700})[_zoom_label],
-                    color="#2ecc71", zoom=_zoom,
+                    color=T["green"], zoom=_zoom,
                 )
                 _where = st.session_state.get("nm_place_applied")
                 st.caption(

@@ -24,6 +24,11 @@ from core.weather  import available_window
 from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceError
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
+from core import theme
+
+# The palette for whichever appearance the visitor has chosen. Charts read
+# it directly; the CSS below reads it through the var(--pp-*) variables.
+T = theme.tokens()
 from core.places   import (place_picker, local_clock, local_now, reference_timezone,
                            identify, timezone_choices, KNOWN_SITES)
 
@@ -59,15 +64,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+theme.inject()
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 .block-container { padding-top: 1.2rem; }
 
 .panel-title {
-    font-size: .78rem; font-weight: 700; color: #f39c12;
+    font-size: .78rem; font-weight: 700; color: var(--pp-orange-text);
     text-transform: uppercase; letter-spacing: 1.5px;
-    border-left: 3px solid #f39c12; padding-left: .5rem;
+    border-left: 3px solid var(--pp-orange); padding-left: .5rem;
     margin: 1rem 0 .7rem 0;
 }
 .result-card {
@@ -75,18 +81,18 @@ st.markdown("""
     border: 2px solid;
 }
 .big-num  { font-size: 3.2rem; font-weight: 900; line-height: 1; }
-.unit     { font-size: .88rem;  color: #8892b0; margin-top: .25rem; }
-.cap-lbl  { font-size: .72rem; color: #8892b0; text-transform: uppercase;
+.unit     { font-size: .88rem;  color: var(--pp-muted); margin-top: .25rem; }
+.cap-lbl  { font-size: .72rem; color: var(--pp-muted); text-transform: uppercase;
             letter-spacing: 1px; margin-bottom: .4rem; }
 .sec-hdr  {
-    font-size: .8rem; font-weight: 700; color: #2ecc71;
+    font-size: .8rem; font-weight: 700; color: var(--pp-green-text);
     text-transform: uppercase; letter-spacing: 1.5px;
-    margin: 1.2rem 0 .4rem 0; border-left: 3px solid #2ecc71;
+    margin: 1.2rem 0 .4rem 0; border-left: 3px solid var(--pp-green);
     padding-left: .6rem;
 }
 .welcome-card {
-    background:#1a1d2e; border:1px dashed #2a2d3e; border-radius:16px;
-    padding:4rem 2rem; text-align:center; color:#8892b0;
+    background:var(--pp-surface); border:1px dashed var(--pp-border); border-radius:16px;
+    padding:4rem 2rem; text-align:center; color:var(--pp-muted);
 }
 
 @media (max-width: 900px) {
@@ -214,28 +220,28 @@ def _gauge(value, max_val, color, title):
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=value,
-        title={"text": title, "font": {"size": 12, "color": "#8892b0"}},
+        title={"text": title, "font": {"size": 12, "color": T["muted"]}},
         number={"font": {"size": 32, "color": color}},
         gauge=dict(
             axis=dict(range=[0, max_val],
-                      tickfont=dict(color="#8892b0", size=9)),
+                      tickfont=dict(color=T["muted"], size=9)),
             bar=dict(color=color),
-            bgcolor="rgba(26,29,46,0.8)",
-            bordercolor="#2a2d3e",
+            bgcolor=T["chart-plot"],
+            bordercolor=T["border"],
             steps=[
-                dict(range=[0, max_val * .2], color="rgba(52,73,94,.3)"),
+                dict(range=[0, max_val * .2], color=T["chart-step"]),
                 dict(range=[max_val * .2, max_val * .5],
-                     color="rgba(46,204,113,.08)"),
+                     color=T["green-soft"]),
                 dict(range=[max_val * .5, max_val],
-                     color="rgba(243,156,18,.08)"),
+                     color=T["orange-soft"]),
             ],
-            threshold=dict(line=dict(color="white", width=2),
+            threshold=dict(line=dict(color=T["text"], width=2),
                            thickness=0.75, value=value),
         ),
     ))
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#e8eaf6"),
+        font=dict(color=T["text"]),
         height=210,
         margin=dict(l=10, r=10, t=30, b=0),
     )
@@ -246,15 +252,15 @@ def _importance_chart(importance):
     fig = go.Figure(go.Bar(
         x=top.values, y=top.index, orientation="h",
         marker=dict(color=top.values,
-                    colorscale=[[0, "#2ecc71"], [1, "#f39c12"]]),
+                    colorscale=[[0, T["green"]], [1, T["orange"]]]),
     ))
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(26,29,46,0.6)",
-        font=dict(color="#e8eaf6", size=11),
+        plot_bgcolor=T["chart-plot"],
+        font=dict(color=T["text"], size=11),
         height=300,
         margin=dict(l=0, r=0, t=0, b=0),
-        xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+        xaxis=dict(showgrid=True, gridcolor=T["chart-grid"],
                    title="Importance"),
         yaxis=dict(showgrid=False),
     )
@@ -456,12 +462,12 @@ with right:
         st.markdown("""
         <div class="welcome-card">
             <div style="font-size:3rem;margin-bottom:1rem">⚙️</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;
+            <div style="font-size:1.15rem;font-weight:700;color:var(--pp-text-strong);
                         margin-bottom:.8rem">Ready for expert prediction</div>
             <div style="font-size:.9rem;line-height:1.75">
-                Enter your <strong style="color:#f39c12">sensor readings</strong>
+                Enter your <strong style="color:var(--pp-orange-text)">sensor readings</strong>
                 on the left, then click
-                <strong style="color:#f39c12">Predict PAR</strong>.<br><br>
+                <strong style="color:var(--pp-orange-text)">Predict PAR</strong>.<br><br>
                 Results include ML prediction, McCree comparison<br>
                 and full feature importance analysis.
             </div>
@@ -491,16 +497,16 @@ with right:
         c1, c2, c3 = st.columns(3, gap="medium")
 
         with c1:
-            col_ml = "#2ecc71" if is_day else "#3498db"
+            col_ml = "var(--pp-green)" if is_day else "var(--pp-blue)"
             _mae   = _card["test_mae"]
             _ntest = _card["n_test"]
             _err_line = (
-                f'<div style="color:#8892b0;font-size:.75rem;margin-top:.4rem" '
+                f'<div style="color:var(--pp-muted);font-size:.75rem;margin-top:.4rem" '
                 f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
                 f'typical error ± {_mae:.0f} µmol/m²/s</div>'
             ) if is_day else ""
             st.markdown(f"""
-            <div class="result-card" style="background:linear-gradient(135deg,#0d2b1a,#0f1117);
+            <div class="result-card" style="background:var(--pp-card-green);
                  border-color:{col_ml}">
                 <div class="cap-lbl">🤖 ML Model (XGBoost)</div>
                 <div class="big-num" style="color:{col_ml}">{par:.1f}</div>
@@ -511,12 +517,12 @@ with right:
 
         with c2:
             st.markdown(f"""
-            <div class="result-card" style="background:linear-gradient(135deg,#2d1a00,#0f1117);
-                 border-color:#f39c12">
+            <div class="result-card" style="background:var(--pp-card-orange);
+                 border-color:var(--pp-orange)">
                 <div class="cap-lbl">📐 McCree Baseline</div>
-                <div class="big-num" style="color:#f39c12">{mc:.1f}</div>
+                <div class="big-num" style="color:var(--pp-orange-text)">{mc:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
-                <div style="color:#8892b0;font-size:.75rem;margin-top:.4rem">
+                <div style="color:var(--pp-muted);font-size:.75rem;margin-top:.4rem">
                     GHI × 0.45 × 4.57
                 </div>
             </div>
@@ -526,13 +532,13 @@ with right:
             diff = abs(par - mc)
             pct  = (diff / mc * 100) if mc > 1 else 0.0
             sign = "ML > McCree" if par > mc else "ML < McCree"
-            diff_color = "#2ecc71" if par > mc else "#e74c3c"
+            diff_color = "var(--pp-green)" if par > mc else "var(--pp-red)"
             st.markdown(f"""
-            <div class="result-card" style="background:#1a1d2e; border-color:#2a2d3e">
+            <div class="result-card" style="background:var(--pp-surface); border-color:var(--pp-border)">
                 <div class="cap-lbl">📊 Difference</div>
                 <div class="big-num" style="color:{diff_color}">{diff:.1f}</div>
                 <div class="unit">µmol / m² / s</div>
-                <div style="color:#8892b0;font-size:.78rem;margin-top:.4rem">
+                <div style="color:var(--pp-muted);font-size:.78rem;margin-top:.4rem">
                     {sign}<br>({pct:.1f} % relative)
                 </div>
             </div>
@@ -543,10 +549,10 @@ with right:
         # ── Gauges ────────────────────────────────────────────────────────────
         g1, g2 = st.columns(2)
         with g1:
-            st.plotly_chart(_gauge(par, 1200, "#2ecc71",
+            st.plotly_chart(_gauge(par, 1200, T["green"],
                                    "ML Model (µmol/m²/s)"), width='stretch')
         with g2:
-            st.plotly_chart(_gauge(mc, 1200, "#f39c12",
+            st.plotly_chart(_gauge(mc, 1200, T["orange"],
                                    "McCree Estimate (µmol/m²/s)"), width='stretch')
 
         # ── Feature importance ────────────────────────────────────────────────

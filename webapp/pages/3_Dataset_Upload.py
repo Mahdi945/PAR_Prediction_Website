@@ -28,6 +28,11 @@ from core.dataset import (
 from core.predict import get_feature_importance, model_status, model_card
 from core.cache import geocode_city
 from core.export import download_bar, to_json_bytes, to_csv_bytes, to_zip_bytes, file_name
+from core import theme
+
+# The palette for whichever appearance the visitor has chosen. Charts read
+# it directly; the CSS below reads it through the var(--pp-*) variables.
+T = theme.tokens()
 
 # ── Limits — keep MAX_UPLOAD_MB equal to server.maxUploadSize in .streamlit/config.toml
 MAX_UPLOAD_MB = 200
@@ -126,24 +131,25 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+theme.inject()
 st.markdown("""
 <style>
 .block-container { padding-top: 1.2rem; }
 .panel-title {
-    font-size: .78rem; font-weight: 700; color: #2ecc71;
+    font-size: .78rem; font-weight: 700; color: var(--pp-green-text);
     text-transform: uppercase; letter-spacing: 1.5px;
-    border-left: 3px solid #2ecc71; padding-left: .5rem;
+    border-left: 3px solid var(--pp-green); padding-left: .5rem;
     margin: .9rem 0 .7rem 0;
 }
 .welcome-card {
-    background:#1a1d2e; border:1px dashed #2a2d3e; border-radius:16px;
-    padding:4rem 2rem; text-align:center; color:#8892b0;
+    background:var(--pp-surface); border:1px dashed var(--pp-border); border-radius:16px;
+    padding:4rem 2rem; text-align:center; color:var(--pp-muted);
 }
 .pill {
-    display:inline-block; background:#1a1d2e; border:1px solid #2a2d3e; border-radius:8px;
-    padding:.15rem .55rem; font-size:.78rem; color:#e8eaf6; margin:.15rem .2rem .15rem 0;
+    display:inline-block; background:var(--pp-surface); border:1px solid var(--pp-border); border-radius:8px;
+    padding:.15rem .55rem; font-size:.78rem; color:var(--pp-text); margin:.15rem .2rem .15rem 0;
 }
-.pill b { color:#2ecc71; }
+.pill b { color:var(--pp-green-text); }
 @media (max-width: 900px) {
     .block-container { padding-left: 1rem; padding-right: 1rem; }
     .welcome-card { padding: 2.5rem 1.2rem; }
@@ -186,14 +192,14 @@ with st.container(border=True):
         st.markdown("""
         <div class="welcome-card">
             <div style="font-size:3rem;margin-bottom:1rem">📊</div>
-            <div style="font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:.8rem">Ready to score your own data</div>
+            <div style="font-size:1.15rem;font-weight:700;color:var(--pp-text-strong);margin-bottom:.8rem">Ready to score your own data</div>
             <div style="font-size:.9rem;line-height:1.75">
-                Upload a file with <strong style="color:#2ecc71">timestamps</strong> and
-                <strong style="color:#2ecc71">GHI</strong> (plus any weather sensors you have).<br>
+                Upload a file with <strong style="color:var(--pp-green-text)">timestamps</strong> and
+                <strong style="color:var(--pp-green-text)">GHI</strong> (plus any weather sensors you have).<br>
                 The page cleans it like the training data, resamples to one-minute values, computes the
                 22 features, runs the model and compares it with the McCree baseline.<br><br>
                 Everything can be downloaded afterwards — predictions, the cleaned file, the feature matrix
-                and a JSON report — as <strong style="color:#2ecc71">CSV, Excel, JSON or Parquet</strong>.
+                and a JSON report — as <strong style="color:var(--pp-green-text)">CSV, Excel, JSON or Parquet</strong>.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -482,10 +488,10 @@ if metrics:
     html = """
     <table style="width:100%;border-collapse:collapse;font-size:.92rem;margin-bottom:1rem">
     <thead><tr>
-      <th style="text-align:left;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">Metric</th>
-      <th style="text-align:right;padding:.55rem .8rem;color:#f39c12;border-bottom:1px solid #2a2d3e">Baseline (McCree)</th>
-      <th style="text-align:right;padding:.55rem .8rem;color:#2ecc71;border-bottom:1px solid #2a2d3e">Model (XGBoost)</th>
-      <th style="text-align:right;padding:.55rem .8rem;color:#8892b0;border-bottom:1px solid #2a2d3e">Winner</th>
+      <th style="text-align:left;padding:.55rem .8rem;color:var(--pp-muted);border-bottom:1px solid var(--pp-border)">Metric</th>
+      <th style="text-align:right;padding:.55rem .8rem;color:var(--pp-orange-text);border-bottom:1px solid var(--pp-border)">Baseline (McCree)</th>
+      <th style="text-align:right;padding:.55rem .8rem;color:var(--pp-green-text);border-bottom:1px solid var(--pp-border)">Model (XGBoost)</th>
+      <th style="text-align:right;padding:.55rem .8rem;color:var(--pp-muted);border-bottom:1px solid var(--pp-border)">Winner</th>
     </tr></thead><tbody>"""
     for label, bv, mv, kind in rows:
         b_ok = isinstance(bv, (int, float)) and np.isfinite(bv)
@@ -500,10 +506,10 @@ if metrics:
             winner = "✅ Yes" if mv > 0 else "⚠️ No"
         else:
             winner = ""
-        html += (f"<tr><td style='padding:.45rem .8rem;border-bottom:1px solid #1a1d2e;color:#e8eaf6'>{label}</td>"
-                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid #1a1d2e;text-align:right;color:#f39c12'>{_fmt(bv) if bv is not None else ''}</td>"
-                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid #1a1d2e;text-align:right;color:#2ecc71'>{_fmt(mv)}</td>"
-                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid #1a1d2e;text-align:right;color:#8892b0'>{winner}</td></tr>")
+        html += (f"<tr><td style='padding:.45rem .8rem;border-bottom:1px solid var(--pp-surface);color:var(--pp-text)'>{label}</td>"
+                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid var(--pp-surface);text-align:right;color:var(--pp-orange-text)'>{_fmt(bv) if bv is not None else ''}</td>"
+                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid var(--pp-surface);text-align:right;color:var(--pp-green-text)'>{_fmt(mv)}</td>"
+                 f"<td style='padding:.45rem .8rem;border-bottom:1px solid var(--pp-surface);text-align:right;color:var(--pp-muted)'>{winner}</td></tr>")
     html += "</tbody></table>"
     st.markdown(html, unsafe_allow_html=True)
 elif result.get("mapping", {}).get("target_par"):
@@ -521,17 +527,17 @@ if len(chart_df) > 5000:                      # keep the browser responsive
 if not chart_df.empty:
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=chart_df["timestamp"], y=chart_df["baseline_prediction"], mode="lines",
-                             name="Baseline (McCree)", line=dict(color="#f39c12", width=1.6)))
+                             name="Baseline (McCree)", line=dict(color=T["orange"], width=1.6)))
     fig.add_trace(go.Scatter(x=chart_df["timestamp"], y=chart_df["model_prediction"], mode="lines",
-                             name="Model (XGBoost)", line=dict(color="#2ecc71", width=1.6)))
+                             name="Model (XGBoost)", line=dict(color=T["green"], width=1.6)))
     if chart_df["target_par"].notna().any():
         fig.add_trace(go.Scatter(x=chart_df["timestamp"], y=chart_df["target_par"], mode="lines",
-                                 name="Measured PAR", line=dict(color="#ffffff", width=1.2, dash="dot")))
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(26,29,46,0.7)",
-                      font=dict(color="#e8eaf6"), height=380, margin=dict(l=10, r=10, t=10, b=0),
+                                 name="Measured PAR", line=dict(color=T["text-strong"], width=1.2, dash="dot")))
+    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor=T["chart-plot"],
+                      font=dict(color=T["text"]), height=380, margin=dict(l=10, r=10, t=10, b=0),
                       legend=dict(bgcolor="rgba(0,0,0,0)", orientation="h", yanchor="bottom", y=1.01),
-                      xaxis=dict(gridcolor="rgba(255,255,255,0.06)"),
-                      yaxis=dict(title="PAR (µmol/m²/s)", gridcolor="rgba(255,255,255,0.06)"),
+                      xaxis=dict(gridcolor=T["chart-grid"]),
+                      yaxis=dict(title="PAR (µmol/m²/s)", gridcolor=T["chart-grid"]),
                       hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
 

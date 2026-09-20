@@ -5,6 +5,8 @@ Entry point. Run with:  python -m streamlit run app.py
 
 import streamlit as st
 
+from core import theme
+
 # ── Global page config ────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ParPredict",
@@ -12,6 +14,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# The palette goes in before anything is drawn, so every page's CSS can use it.
+theme.inject()
 
 # ── Sidebar: logo + title pinned above nav links via CSS ::before ─────────────
 st.markdown("""
@@ -22,10 +27,10 @@ st.markdown("""
     display: block;
     font-size: 1.25rem;
     font-weight: 900;
-    color: #ffffff;
+    color: var(--pp-text-strong);
     padding: 1.4rem 1rem 1rem 1.4rem;
     letter-spacing: .4px;
-    border-bottom: 1px solid #2a2d3e;
+    border-bottom: 1px solid var(--pp-border);
     margin-bottom: .4rem;
 }
 
@@ -40,10 +45,10 @@ st.markdown("""
     margin: 2px 6px !important;
 }
 [data-testid="stSidebarNavLink"]:hover {
-    background-color: rgba(46,204,113,.12) !important;
+    background-color: var(--pp-green-soft) !important;
 }
 [data-testid="stSidebarNavLink"][aria-selected="true"] {
-    background-color: rgba(46,204,113,.18) !important;
+    background-color: var(--pp-green-soft) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -55,4 +60,11 @@ pg = st.navigation([
     st.Page("pages/2_Expert_Mode.py",   title="Expert Mode",    icon="⚙️"),
     st.Page("pages/3_Dataset_Upload.py", title="Dataset Upload", icon="📊"),
 ])
+
+# ── Appearance ────────────────────────────────────────────────────────────────
+# Below the navigation, so it reads as a setting rather than a destination.
+with st.sidebar:
+    st.divider()
+    theme.switcher()
+
 pg.run()

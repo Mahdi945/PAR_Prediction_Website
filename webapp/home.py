@@ -6,6 +6,11 @@ import base64
 import streamlit as st
 from pathlib import Path
 from core.predict import model_status
+from core import theme
+
+# The palette for whichever appearance the visitor has chosen. Charts read
+# it directly; the CSS below reads it through the var(--pp-*) variables.
+T = theme.tokens()
 
 # ── Load the logo ────────────────────────────────────────────────────────────
 # logo.png wins when it is there, otherwise the original logo.svg — swapping
@@ -15,7 +20,11 @@ from core.predict import model_status
 # is that version, if it is ever wanted instead).
 _ASSETS = Path(__file__).parent / "assets"
 _logo_img = ""
-for _name, _mime in (("logo_lockup.png", "image/png"),
+# The lockup writes "Par" in white, which disappears on a light background, so
+# light mode gets a copy with that word inked dark. Same artwork otherwise.
+_LOCKUP = "logo_lockup.png" if theme.is_dark() else "logo_lockup_light.png"
+for _name, _mime in ((_LOCKUP, "image/png"),
+                     ("logo_lockup.png", "image/png"),
                      ("logo.png", "image/png"),
                      ("logo.svg", "image/svg+xml")):
     _p = _ASSETS / _name
@@ -27,6 +36,7 @@ for _name, _mime in (("logo_lockup.png", "image/png"),
         )
         break
 
+theme.inject()
 # ── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -61,13 +71,13 @@ h1.hero-title {
    margin, so the gap under the logo has to be stated here or it collapses to
    nothing. This one number is the whole spacing between logo and tagline. */
 p.hero-sub {
-    font-size: 1.1rem; color: #8892b0; line-height: 1.6;
+    font-size: 1.1rem; color: var(--pp-muted); line-height: 1.6;
     margin: 0.85rem 0 0.2rem 0 !important;
 }
 
 /* Mode cards */
 .mode-card {
-    background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%);
+    background: linear-gradient(135deg, var(--pp-surface) 0%, var(--pp-bg) 100%);
     border-radius: 18px; padding: 2.2rem 1.8rem;
     text-align: center;
     height: 360px;
@@ -80,17 +90,17 @@ p.hero-sub {
     overflow: hidden;
     margin: 0 auto;
 }
-.mode-card-green  { border: 2px solid #2ecc71; }
-.mode-card-orange { border: 2px solid #f39c12; }
+.mode-card-green  { border: 2px solid var(--pp-green); }
+.mode-card-orange { border: 2px solid var(--pp-orange); }
 .mode-card:hover  { transform: translateY(-3px);
                     box-shadow: 0 12px 32px rgba(46,204,113,.25); }
 a.mode-link       { text-decoration: none !important; display: block; width: 100%; height: 100%; }
 a.mode-link:hover .mode-card-green  { box-shadow: 0 12px 32px rgba(46,204,113,.35); transform: translateY(-3px); }
 a.mode-link:hover .mode-card-orange { box-shadow: 0 12px 32px rgba(243,156,18,.35); transform: translateY(-3px); }
 .mode-icon  { font-size: 3.2rem; margin-bottom: .8rem; flex-shrink: 0; }
-.mode-title { font-size: 1.5rem; font-weight: 800; color: #fff;
+.mode-title { font-size: 1.5rem; font-weight: 800; color: var(--pp-text-strong);
               margin: .4rem 0; flex-shrink: 0; }
-.mode-desc  { color: #8892b0; font-size: .9rem; line-height: 1.65;
+.mode-desc  { color: var(--pp-muted); font-size: .9rem; line-height: 1.65;
               flex: 1; overflow-wrap: anywhere; }
 
 /* Force Streamlit columns that hold mode cards to equal height */
@@ -101,17 +111,17 @@ div[data-testid="column"] > div:first-child {
 /* Stats strip */
 .stats-bar {
     display: flex; justify-content: space-around;
-    background: #1a1d2e; border: 1px solid #2a2d3e;
+    background: var(--pp-surface); border: 1px solid var(--pp-border);
     border-radius: 14px; padding: 1.4rem 1rem; margin: 2rem 0;
 }
 .stat-item { text-align: center; }
-.stat-val { font-size: 1.9rem; font-weight: 900; color: #2ecc71; }
-.stat-lbl { font-size: .75rem; color: #8892b0;
+.stat-val { font-size: 1.9rem; font-weight: 900; color: var(--pp-green-text); }
+.stat-lbl { font-size: .75rem; color: var(--pp-muted);
             text-transform: uppercase; letter-spacing: 1.5px; }
 
 /* How-it-works steps */
 .step-card {
-    background: #1a1d2e; border: 1px solid #2a2d3e;
+    background: var(--pp-surface); border: 1px solid var(--pp-border);
     border-radius: 14px; padding: 1.4rem 1rem;
     text-align: center;
     height: 200px;                   /* fixed equal height for all cards */
@@ -123,24 +133,24 @@ div[data-testid="column"] > div:first-child {
     overflow: hidden;
 }
 .step-icon  { font-size: 2rem; flex-shrink: 0; }
-.step-title { font-size: 1rem; font-weight: 700; color: #fff;
+.step-title { font-size: 1rem; font-weight: 700; color: var(--pp-text-strong);
               margin: .5rem 0 .3rem 0; flex-shrink: 0; }
-.step-desc  { color: #8892b0; font-size: .78rem; line-height: 1.5;
+.step-desc  { color: var(--pp-muted); font-size: .78rem; line-height: 1.5;
               flex-shrink: 0; overflow: hidden; }
 
 /* Warning / info banner */
 .model-warn {
-    background: #2d1a00; border: 1px solid #f39c12;
+    background: var(--pp-warn-bg); border: 1px solid var(--pp-orange);
     border-radius: 10px; padding: .9rem 1.2rem;
-    color: #f7c948; font-size: .88rem;
+    color: var(--pp-warn-text); font-size: .88rem;
 }
 
 /* Footer — stick to page bottom */
 .footer-wrap {
     position: fixed; bottom: 0; left: 0; right: 0;
-    background: #0f1117;
-    border-top: 1px solid #1a1d2e;
-    text-align: center; color: #5a6070;
+    background: var(--pp-bg);
+    border-top: 1px solid var(--pp-surface);
+    text-align: center; color: var(--pp-faint);
     font-size: .76rem; padding: .6rem 1rem;
     z-index: 999;
 }
@@ -194,7 +204,7 @@ with hero_col:
         <h1 class="hero-title">{_logo_img}</h1>
         <p class="hero-sub">
             Predict Photosynthetically Active Radiation for Agrivoltaic Systems<br>
-            <small style="color:#5a6070">
+            <small style="color:var(--pp-faint)">
                 Powered by XGBoost &nbsp;·&nbsp; pvlib &nbsp;·&nbsp;
                 Open-Meteo &nbsp;·&nbsp; Hochschule Anhalt 2026
             </small>
@@ -235,7 +245,7 @@ with col_a:
             any date from 1940 to 15 days ahead.
         </div>
         <div style="margin-top:1rem">
-          <strong style="color:#2ecc71">3 inputs &nbsp;·&nbsp; One prediction</strong>
+          <strong style="color:var(--pp-green-text)">3 inputs &nbsp;·&nbsp; One prediction</strong>
         </div>
       </div>
     </a>
@@ -248,7 +258,7 @@ with col_b:
         <div class="mode-icon">⚙️</div>
         <div class="mode-title">Expert Mode</div>
         <div style="margin:.3rem 0 .7rem 0">
-          <strong style="color:#f39c12">Full control &nbsp;·&nbsp; Full transparency</strong>
+          <strong style="color:var(--pp-orange-text)">Full control &nbsp;·&nbsp; Full transparency</strong>
         </div>
         <div class="mode-desc">
             Enter your own sensor readings for maximum accuracy.<br>
@@ -262,11 +272,11 @@ with col_b:
 with col_c:
     st.markdown("""
     <a href="Dataset_Upload" target="_self" class="mode-link">
-      <div class="mode-card" style="border: 2px solid #3498db;">
+      <div class="mode-card" style="border: 2px solid var(--pp-blue);">
         <div class="mode-icon">📊</div>
         <div class="mode-title">Dataset Upload</div>
         <div style="margin:.3rem 0 .7rem 0">
-          <strong style="color:#3498db">Batch analysis &nbsp;·&nbsp; Full benchmark</strong>
+          <strong style="color:var(--pp-blue-text)">Batch analysis &nbsp;·&nbsp; Full benchmark</strong>
         </div>
         <div class="mode-desc">
             Upload a full time-series dataset with sensor readings and location.<br>
@@ -282,42 +292,42 @@ st.markdown("<br>", unsafe_allow_html=True)
 #  MODE COMPARISON TABLE
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div style="background:#1a1d2e;border:1px solid #2a2d3e;border-radius:14px;
+<div style="background:var(--pp-surface);border:1px solid var(--pp-border);border-radius:14px;
             padding:1.2rem 1.6rem;margin-bottom:1.4rem">
   <table style="width:100%;border-collapse:collapse;font-size:.9rem">
     <thead>
       <tr>
-        <th style="color:#8892b0;font-weight:600;padding:.4rem .8rem;
+        <th style="color:var(--pp-muted);font-weight:600;padding:.4rem .8rem;
                    text-align:left;width:22%">Feature</th>
-        <th style="color:#2ecc71;font-weight:700;padding:.4rem .8rem;
+        <th style="color:var(--pp-green-text);font-weight:700;padding:.4rem .8rem;
                    text-align:center;width:39%">🌱 Normal Mode</th>
-        <th style="color:#f39c12;font-weight:700;padding:.4rem .8rem;
+        <th style="color:var(--pp-orange-text);font-weight:700;padding:.4rem .8rem;
                    text-align:center;width:39%">⚙️ Expert Mode</th>
       </tr>
     </thead>
-    <tbody style="color:#e8eaf6">
-      <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Who is it for?</td>
+    <tbody style="color:var(--pp-text)">
+      <tr style="border-top:1px solid var(--pp-border)">
+        <td style="padding:.45rem .8rem;color:var(--pp-muted)">Who is it for?</td>
         <td style="padding:.45rem .8rem;text-align:center">Farmers, agronomists, general users</td>
         <td style="padding:.45rem .8rem;text-align:center">Researchers, engineers with on-site sensors</td>
       </tr>
-      <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Inputs required</td>
+      <tr style="border-top:1px solid var(--pp-border)">
+        <td style="padding:.45rem .8rem;color:var(--pp-muted)">Inputs required</td>
         <td style="padding:.45rem .8rem;text-align:center">Location + Date/Time <em>(3 fields)</em></td>
         <td style="padding:.45rem .8rem;text-align:center">All sensor readings manually <em>(17+ fields)</em></td>
       </tr>
-      <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Weather data</td>
+      <tr style="border-top:1px solid var(--pp-border)">
+        <td style="padding:.45rem .8rem;color:var(--pp-muted)">Weather data</td>
         <td style="padding:.45rem .8rem;text-align:center">Auto-fetched via Open-Meteo API</td>
         <td style="padding:.45rem .8rem;text-align:center">You enter your own sensor values</td>
       </tr>
-      <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Accuracy</td>
+      <tr style="border-top:1px solid var(--pp-border)">
+        <td style="padding:.45rem .8rem;color:var(--pp-muted)">Accuracy</td>
         <td style="padding:.45rem .8rem;text-align:center">Good (API weather ~hourly resolution)</td>
         <td style="padding:.45rem .8rem;text-align:center">Maximum (real on-site measurements)</td>
       </tr>
-      <tr style="border-top:1px solid #2a2d3e">
-        <td style="padding:.45rem .8rem;color:#8892b0">Results shown</td>
+      <tr style="border-top:1px solid var(--pp-border)">
+        <td style="padding:.45rem .8rem;color:var(--pp-muted)">Results shown</td>
         <td style="padding:.45rem .8rem;text-align:center">PAR gauge · DLI · Forecast chart · Crop advice</td>
         <td style="padding:.45rem .8rem;text-align:center">All of Normal + feature importance · McCree comparison · full feature table</td>
       </tr>
@@ -426,6 +436,6 @@ st.markdown("""
 <div class="footer-wrap">
     ParPredict &nbsp;·&nbsp; Hochschule Anhalt &nbsp;·&nbsp;
     Data Science Master Program 2026 &nbsp;&nbsp;·&nbsp;&nbsp;
-    <strong>Creator:</strong> Mehdi Bey
+    <strong>Creator:</strong> Mahdi Bey
 </div>
 """, unsafe_allow_html=True)
