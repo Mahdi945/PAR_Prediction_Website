@@ -13,14 +13,17 @@ coordinates, the altitude and the timezone from the match they pick.
     local_now(tz) / local_hour   → the current wall time there
     place_picker(...)            → the Streamlit widget both pages use
 
-Accuracy. Coordinates come from Open-Meteo's geocoding service, which is built
-on the GeoNames database: each hit is that settlement's official centroid, with
-its terrain elevation and IANA timezone. Two places of the same name are told
-apart by district, region, country and population, all of which are shown
-before anything is applied — "Cottbus, Brandenburg, Germany (84,754)" versus
-"Cottbus, Howell, Missouri, United States". Nothing is written into the form
-until the visitor presses the button, and the exact numbers are displayed first,
-so a wrong match is visible rather than silent.
+One widget. Typing a place and pressing Enter runs a search; the matches fill
+the same dropdown, and choosing one fills the coordinate fields. A single match
+is applied immediately.
+
+Accuracy. Coordinates come from Open-Meteo's geocoding service, built on the
+GeoNames database: each hit is that settlement's official centroid, with its
+terrain elevation and IANA timezone. Places sharing a name are separated by
+district, region, country and population, all shown in the list — "Villingen,
+Regierungsbezirk Gießen, Hesse" is not "Villingen-Schwenningen, Baden-
+Wurttemberg", and the exact latitude, longitude, elevation and zone of whatever
+was applied stay on screen underneath, so a wrong pick is visible.
 
 A centroid is a town, not a field. For a specific plot, pick the town and then
 nudge the coordinates — the number inputs stay editable on purpose.
@@ -98,8 +101,43 @@ def local_hour(tz: str | None = None) -> dtime:
 # ── The picker ───────────────────────────────────────────────────────────────
 
 def _label(p: dict) -> str:
+    """The text shown in the dropdown. Must be unique per place, and must
+    change when the search changes — Streamlit keeps a widget's rendered
+    options when they compare equal, so positional indices as options made two
+    different searches look identical and left a stale name on screen."""
     pop = f"  ·  {p['population']:,} people" if p.get("population") else ""
     return f"{p['display']}{pop}"
+
+
+def interpret(typed: str | None, offered: list[dict]) -> tuple[str, object, str]:
+    """What a value coming out of the picker means.
+
+    Returns ``(action, payload, note)`` where action is one of:
+
+        "ignore"  nothing selected
+        "pick"    `payload` is the place the visitor chose from the list
+        "single"  `payload` is a one-item result list — apply it, nothing to choose
+        "many"    `payload` is the result list — the visitor picks next
+        "none"    the search found nothing; `payload` is []
+
+    Kept free of Streamlit so it can be tested directly: ``AppTest`` cannot
+    drive ``accept_new_options``, so the widget wiring is verified in a browser
+    but the decision it encodes is verified here.
+    """
+    if not typed or not str(typed).strip():
+        return "ignore", None, ""
+    by_label = {_label(p): p for p in offered}
+    if typed in by_label:
+        return "pick", by_label[typed], ""
+
+    query = str(typed).strip()
+    hits = search(query)
+    if not hits:
+        return "none", [], (f"No place matched “{query}”. Check the spelling, "
+                            f"or type the coordinates below.")
+    if len(hits) == 1:
+        return "single", hits, ""
+    return "many", hits, f"{len(hits)} places match “{query}” — open the list and pick one."
 
 
 def place_picker(
@@ -113,55 +151,28 @@ def place_picker(
     time_key: str | None = None,
     label: str = "Search a city or region",
 ) -> None:
-    """Search box → candidate list → "use these coordinates".
+    """One autocomplete box: type a place, press Enter, pick a match.
 
-    Writes straight into the session-state keys of the coordinate widgets, so
-    the form updates in place. `tz_key`, `date_key` and `time_key` are optional:
-    when given, the timezone field is set to the place's own zone and the
-    date/time are moved to *now there*, which is what "local time at that
-    location" means.
+    A single ``st.selectbox`` with ``accept_new_options=True`` does both jobs.
+    Anything typed that is not already on the list is treated as a new search;
+    the matches it returns become the list, and choosing one fills the
+    coordinate fields. A lone match is applied straight away, because there is
+    nothing to disambiguate.
+
+    Optional `tz_key`, `date_key` and `time_key` also move the timezone field
+    and the clock to the chosen place — which is what "local time at that
+    location" is supposed to mean.
     """
-    query = st.text_input(
-        label,
-        key=f"{key}_query",
-        placeholder="Cottbus · Brandenburg · Nairobi · 　…",
-        help="Type a place and press Enter. Coordinates, altitude and timezone "
-             "come from the GeoNames database via Open-Meteo.",
-    )
-    if not query or not query.strip():
-        return
+    opts_key, sel_key, note_key = f"{key}_options", f"{key}_select", f"{key}_note"
+    places: list[dict] = st.session_state.get(opts_key, [])
 
-    with st.spinner("Looking up…"):
-        results = search(query)
-
-    if not results:
-        st.caption(f"No place matched “{query.strip()}”. Check the spelling, or "
-                   f"type the coordinates below.")
-        return
-
-    choice = st.selectbox(
-        f"{len(results)} match{'es' if len(results) != 1 else ''}",
-        options=range(len(results)),
-        format_func=lambda i: _label(results[i]),
-        key=f"{key}_choice",
-    )
-    place = results[choice]
-
-    tz_note = f" · {place['timezone']}" if place.get("timezone") else ""
-    st.caption(
-        f"📍 **{place['latitude']:.4f}°N, {place['longitude']:.4f}°E** · "
-        f"{place['elevation']:.0f} m{tz_note}"
-    )
-
-    if st.button("📍 Use these coordinates", key=f"{key}_apply", use_container_width=True):
+    def _apply(place: dict) -> None:
         st.session_state[lat_key] = float(place["latitude"])
         st.session_state[lon_key] = float(place["longitude"])
         st.session_state[alt_key] = float(place["elevation"] or 0.0)
         tz = place.get("timezone") or ""
         if tz_key and tz:
             st.session_state[tz_key] = tz
-        # "Local time at that location" only means something if the clock moves
-        # with the place.
         if tz and (date_key or time_key):
             there = local_now(tz)
             if date_key:
@@ -169,4 +180,46 @@ def place_picker(
             if time_key:
                 st.session_state[time_key] = dtime(there.hour, 0)
         st.session_state[f"{key}_applied"] = place["display"]
-        st.rerun()
+        st.session_state[f"{key}_chosen"] = place
+        st.session_state[note_key] = ""
+
+    def _on_change() -> None:
+        action, payload, note = interpret(st.session_state.get(sel_key),
+                                          st.session_state.get(opts_key, []))
+        if action == "ignore":
+            return
+        if action == "pick":
+            _apply(payload)
+            return
+        # a new search: the hits become the list, and the typed text is dropped
+        st.session_state[opts_key] = payload
+        st.session_state[sel_key] = None
+        st.session_state[note_key] = note
+        if action == "single":
+            _apply(payload[0])
+
+    st.selectbox(
+        label,
+        options=[_label(p) for p in places],
+        index=None,
+        key=sel_key,
+        accept_new_options=True,
+        filter_mode="contains",
+        placeholder="Type a place and press Enter…",
+        on_change=_on_change,
+        help="Type a town or region and press Enter; the matches appear in this "
+             "same list. Coordinates, altitude and timezone come from the "
+             "GeoNames database via Open-Meteo.",
+    )
+
+    note = st.session_state.get(note_key)
+    if note:
+        st.caption(note)
+
+    chosen = st.session_state.get(f"{key}_chosen")
+    if chosen:
+        tz_note = f" · {chosen['timezone']}" if chosen.get("timezone") else ""
+        st.caption(
+            f"📍 **{chosen['latitude']:.4f}°N, {chosen['longitude']:.4f}°E** · "
+            f"{chosen['elevation']:.0f} m{tz_note}"
+        )
