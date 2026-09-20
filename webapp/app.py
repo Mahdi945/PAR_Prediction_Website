@@ -5,7 +5,7 @@ Entry point. Run with:  python -m streamlit run app.py
 
 import streamlit as st
 
-from core import theme
+from core import i18n, theme
 
 # ── Global page config ────────────────────────────────────────────────────────
 st.set_page_config(
@@ -14,6 +14,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Wrap Streamlit's text functions before a single page runs, so every label,
+# caption and button passes through the catalogue without the pages knowing.
+i18n.install()
 
 # The palette goes in before anything is drawn, so every page's CSS can use it.
 theme.inject()
@@ -86,5 +90,6 @@ pg = st.navigation([
 # between the pages and this control.
 with st.sidebar:
     theme.switcher()
+    i18n.switcher()
 
 pg.run()
