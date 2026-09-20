@@ -23,7 +23,7 @@ from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe
 from core.export    import download_bar, to_json_bytes, file_name
-from core.places    import place_picker, local_hour, local_now, reference_timezone
+from core.places    import place_picker, local_clock, local_now, reference_timezone
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -114,7 +114,7 @@ for _k, _v in {
     "nm_alt":  84.0,
     "nm_tz":   "",                       # filled by the place picker
     "nm_date": local_now(_tz_ref).date(),
-    "nm_time": local_hour(_tz_ref),
+    "nm_time": local_clock(_tz_ref),
 }.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
@@ -229,6 +229,7 @@ with left:
             + ("  — the zone of the place you picked." if st.session_state.get("nm_tz")
                else "  — your own timezone. Pick a place above to use its clock instead.")
         )
+        st.caption(f"⏱ Weather is hourly, so the **{sel_time:%H}:00** reading is used.")
         st.caption(
             f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
             f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "

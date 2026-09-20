@@ -24,7 +24,7 @@ from core.weather  import available_window
 from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceError
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
-from core.places   import place_picker, local_hour, local_now, reference_timezone
+from core.places   import place_picker, local_clock, local_now, reference_timezone
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -125,7 +125,7 @@ for key, value in {
     "e_alt":  84.0,
     "e_tz":   _tz_start,
     "e_date": local_now(_tz_start).date(),
-    "e_time": local_hour(_tz_start),
+    "e_time": local_clock(_tz_start),
     "e_ghi":  450.0,
     "e_temp": 18.0,
     "e_rh":   65.0,
@@ -322,7 +322,8 @@ with left:
         dt_sel = datetime.combine(sel_date, sel_time)
         _clock = local_now(st.session_state.e_tz)
         st.caption(f"🕒 Now in **{st.session_state.e_tz}**: "
-                   f"{_clock:%H:%M} on {_clock:%Y-%m-%d}")
+                   f"{_clock:%H:%M} on {_clock:%Y-%m-%d}  ·  "
+                   f"auto-fetch uses the **{sel_time:%H}:00** reading.")
         st.caption(
             f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
             f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "

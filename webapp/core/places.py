@@ -38,7 +38,8 @@ import streamlit as st
 
 from . import weather as W
 
-__all__ = ["search", "reference_timezone", "local_now", "local_hour", "place_picker"]
+__all__ = ["search", "reference_timezone", "local_now", "local_hour", "local_clock",
+           "interpret", "place_picker"]
 
 MAX_RESULTS = 8
 
@@ -96,6 +97,18 @@ def local_now(tz: str | None = None) -> datetime:
 def local_hour(tz: str | None = None) -> dtime:
     """Current local hour, floored — the weather API is hourly anyway."""
     return dtime(local_now(tz).hour, 0)
+
+
+def local_clock(tz: str | None = None) -> dtime:
+    """Current local time *as a clock shows it*, minutes included.
+
+    This is what goes in the "local time at that location" field. The floored
+    hour is what the weather request ends up using, but showing 16:00 beside a
+    caption reading 16:34 looks like two different times — so the field states
+    the real one and the page says which hour is fetched.
+    """
+    now = local_now(tz)
+    return dtime(now.hour, now.minute)
 
 
 # ── The picker ───────────────────────────────────────────────────────────────
@@ -178,7 +191,7 @@ def place_picker(
             if date_key:
                 st.session_state[date_key] = there.date()
             if time_key:
-                st.session_state[time_key] = dtime(there.hour, 0)
+                st.session_state[time_key] = dtime(there.hour, there.minute)
         st.session_state[f"{key}_applied"] = place["display"]
         st.session_state[f"{key}_chosen"] = place
         st.session_state[note_key] = ""
