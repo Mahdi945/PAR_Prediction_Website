@@ -38,9 +38,13 @@ st.markdown("""
 /* The name is drawn in the artwork, so the heading holds the image instead of
    type. It stays an <h1> so the page keeps a real heading for screen readers
    and for the document outline; the alt text carries the name. */
-.hero-logo {
+/* Selector deliberately long: Streamlit ships
+   [data-testid="stMarkdownContainer"] img { max-width: 100% }, which is more
+   specific than a lone .hero-logo and silently won - the logo rendered at its
+   natural 520 px. .hero-title img.hero-logo outranks it without !important. */
+.hero-title img.hero-logo {
     display: block; margin: 0 auto;
-    width: 100%; max-width: 330px; height: auto;
+    width: 100%; max-width: 210px; height: auto;
 }
 .hero-sub {
     font-size: 1.1rem; color: #8892b0;
@@ -128,7 +132,7 @@ div[data-testid="column"] > div:first-child {
 }
 
 @media (max-width: 900px) {
-    .hero-logo { max-width: 250px; }
+    .hero-title img.hero-logo { max-width: 180px; }
     .hero-sub { font-size: .98rem; }
     .stats-bar { flex-wrap: wrap; gap: .75rem; padding: 1rem; }
     .stat-item { width: 48%; margin-bottom: .75rem; }
@@ -146,7 +150,7 @@ div[data-testid="column"] > div:first-child {
     .mode-card { max-width: 320px; }
 }
 @media (max-width: 640px) {
-    .hero-logo { max-width: 210px; }
+    .hero-title img.hero-logo { max-width: 155px; }
     .hero-sub { font-size: .9rem; }
     .stats-bar { flex-direction: column; }
     .stat-item { width: 100%; text-align: left; }
