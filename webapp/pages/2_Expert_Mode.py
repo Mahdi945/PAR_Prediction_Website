@@ -24,6 +24,7 @@ from core.weather  import available_window
 from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceError
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
+from core.places   import place_picker, local_hour, local_now, reference_timezone
 
 # Widget bounds, defined once and reused by both the sliders/number inputs and
 # the auto-fetch clamp. A fetched value outside a widget's range (−31 °C in
@@ -113,14 +114,18 @@ st.markdown("""
 if "expert_result" not in st.session_state:
     st.session_state.expert_result = None
 
-# ensure expert inputs persist between reruns
+# ensure expert inputs persist between reruns.
+# The clock starts on the visitor's own timezone (from their browser), not the
+# server's — on Streamlit Cloud that is UTC, which showed 14:00 to someone
+# looking at a 16:00 wall clock. Once a place is picked, its zone takes over.
+_tz_start = reference_timezone(None, fallback="Europe/Berlin")
 for key, value in {
     "e_lat":  51.6872,
     "e_lon":  14.4143,
     "e_alt":  84.0,
-    "e_tz":   "Europe/Berlin",
-    "e_date": date.today(),
-    "e_time": dtime(datetime.now().hour, 0),
+    "e_tz":   _tz_start,
+    "e_date": local_now(_tz_start).date(),
+    "e_time": local_hour(_tz_start),
     "e_ghi":  450.0,
     "e_temp": 18.0,
     "e_rh":   65.0,
@@ -272,9 +277,21 @@ left, right = st.columns([1, 2.3], gap="large")
 with left:
     with st.container(border=True):
 
+        # ── Find a place ──────────────────────────────────────────────────────
+        st.markdown('<div class="panel-title">🔎 Find a place</div>',
+                    unsafe_allow_html=True)
+        place_picker(
+            key="em_place",
+            lat_key="e_lat", lon_key="e_lon", alt_key="e_alt",
+            tz_key="e_tz", date_key="e_date", time_key="e_time",
+        )
+        if st.session_state.get("em_place_applied"):
+            st.success(f"📍 {st.session_state['em_place_applied']} · {st.session_state['e_tz']}")
+
         # ── Location & Time ───────────────────────────────────────────────────
         st.markdown('<div class="panel-title">📍 Location & Time</div>',
                     unsafe_allow_html=True)
+        st.caption("Filled in by the search above — still editable.")
         lat = st.number_input("Latitude (°N)",  -90.0,  90.0,
                               format="%.4f", step=0.0001, key="e_lat")
         lon = st.number_input("Longitude (°E)", -180.0, 180.0,
@@ -303,6 +320,9 @@ with left:
                  "Weather is hourly, so minutes are ignored.",
         )
         dt_sel = datetime.combine(sel_date, sel_time)
+        _clock = local_now(st.session_state.e_tz)
+        st.caption(f"🕒 Now in **{st.session_state.e_tz}**: "
+                   f"{_clock:%H:%M} on {_clock:%Y-%m-%d}")
         st.caption(
             f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
             f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "

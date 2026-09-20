@@ -218,6 +218,11 @@ def _fetch_day(
         "timezone":   "auto",
         "start_date": day.isoformat(),
         "end_date":   day.isoformat(),
+        # Open-Meteo defaults wind to km/h. The station sensors the model was
+        # trained on report m/s, so ask for m/s explicitly — otherwise every
+        # wind reading arrives 3.6x too large and looks out of range.
+        # Every other variable already matches: C, %, mm, W/m2, degrees.
+        "wind_speed_unit": "ms",
     }
 
     data   = _get_json(url, params, what=what)
@@ -404,13 +409,23 @@ def geocode_city_strict(name: str, max_results: int = 5) -> list[dict]:
 
     out = []
     for r in results:
+        # admin1 is the state/region, admin2 the district. Both are carried so
+        # the picker can tell two places of the same name apart — there is a
+        # Cottbus in Brandenburg and another in Missouri.
+        parts = [r.get("name", ""), r.get("admin2", ""), r.get("admin1", ""), r.get("country", "")]
         out.append({
-            "name":      r.get("name", ""),
-            "country":   r.get("country", ""),
-            "admin1":    r.get("admin1", ""),
-            "latitude":  r.get("latitude", 0.0),
-            "longitude": r.get("longitude", 0.0),
-            "elevation": r.get("elevation", 0.0),
-            "display":   f"{r.get('name','')}, {r.get('admin1','')} – {r.get('country','')}",
+            "name":       r.get("name", ""),
+            "country":    r.get("country", ""),
+            "country_code": r.get("country_code", ""),
+            "admin1":     r.get("admin1", ""),
+            "admin2":     r.get("admin2", ""),
+            "latitude":   r.get("latitude", 0.0),
+            "longitude":  r.get("longitude", 0.0),
+            "elevation":  r.get("elevation", 0.0),
+            # The IANA zone of the place itself — what "local time there" means,
+            # and what Expert Mode needs for its solar geometry.
+            "timezone":   r.get("timezone", "") or "",
+            "population": r.get("population") or 0,
+            "display":    ", ".join(p for p in parts if p),
         })
     return out

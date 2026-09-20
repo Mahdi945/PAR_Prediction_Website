@@ -23,6 +23,7 @@ from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe
 from core.export    import download_bar, to_json_bytes, file_name
+from core.places    import place_picker, local_hour, local_now, reference_timezone
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -101,6 +102,26 @@ st.markdown("""
 if "normal_result" not in st.session_state:
     st.session_state.normal_result = None
 
+# The clock the page offers by default. Without a chosen place this is the
+# visitor's own timezone, read from their browser — NOT the server's, which on
+# Streamlit Cloud is UTC and left a visitor in Germany looking at 14:00 at 16:00.
+_tz_ref = reference_timezone(st.session_state.get("nm_tz"), fallback="Europe/Berlin")
+_win = available_window()
+
+for _k, _v in {
+    "nm_lat":  51.6872,
+    "nm_lon":  14.4143,
+    "nm_alt":  84.0,
+    "nm_tz":   "",                       # filled by the place picker
+    "nm_date": local_now(_tz_ref).date(),
+    "nm_time": local_hour(_tz_ref),
+}.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
+# A date left over from an older session moves out of the window as days pass.
+st.session_state.nm_date = min(max(st.session_state.nm_date, _win.min_date), _win.max_date)
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def par_category(par):
     if par < 50:   return "Very Low",  "#6c757d", "🌑"
@@ -145,25 +166,39 @@ left, right = st.columns([1, 2.3], gap="large")
 with left:
     with st.container(border=True):
 
+        # ── Find a place ─────────────────────────────────────────────────────
+        st.markdown('<div class="panel-title">🔎 Find a place</div>',
+                    unsafe_allow_html=True)
+        place_picker(
+            key="nm_place",
+            lat_key="nm_lat", lon_key="nm_lon", alt_key="nm_alt",
+            tz_key="nm_tz", date_key="nm_date", time_key="nm_time",
+        )
+        if st.session_state.get("nm_place_applied"):
+            st.success(f"📍 {st.session_state['nm_place_applied']}"
+                       + (f" · {st.session_state['nm_tz']}" if st.session_state.get("nm_tz") else ""))
+
         # ── Coordinates ──────────────────────────────────────────────────────
         st.markdown('<div class="panel-title">📍 Coordinates</div>',
                     unsafe_allow_html=True)
+        st.caption("Filled in by the search above — still editable, so you can "
+                   "nudge them from the town centre to your own field.")
         lat = st.number_input(
             "Latitude (°N)",
             min_value=-90.0, max_value=90.0,
-            value=51.6872, step=0.0001, format="%.4f",
+            step=0.0001, format="%.4f", key="nm_lat",
             help="Southern hemisphere → negative. Range: −90 to +90",
         )
         lon = st.number_input(
             "Longitude (°E)",
             min_value=-180.0, max_value=180.0,
-            value=14.4143, step=0.0001, format="%.4f",
+            step=0.0001, format="%.4f", key="nm_lon",
             help="Western hemisphere → negative. Range: −180 to +180",
         )
         alt = st.number_input(
             "Altitude (m)",
             min_value=0.0, max_value=8848.0,
-            value=84.0, step=1.0,
+            step=1.0, key="nm_alt",
             help="Used for precise solar geometry. Enter 0 if unknown.",
         )
 
@@ -172,11 +207,10 @@ with left:
         # ── Date & Time ───────────────────────────────────────────────────────
         st.markdown('<div class="panel-title">🕐 Date & Time</div>',
                     unsafe_allow_html=True)
-        now = datetime.now()
-        win = available_window()
+        win = _win
         sel_date = st.date_input(
             "Date",
-            value=win.today,
+            key="nm_date",
             min_value=win.min_date,
             max_value=win.max_date,
             help="Past dates use ERA5 reanalysis; today and future dates use "
@@ -184,17 +218,21 @@ with left:
         )
         sel_time = st.time_input(
             "Local time at that location",
-            value=dtime(now.hour, 0),
-            step=60,
+            step=60, key="nm_time",
             help="Click the field or type the hour as HH:MM. "
                  "Weather is hourly, so minutes are ignored.",
         )
         dt_sel = datetime.combine(sel_date, sel_time)
+        _clock = local_now(_tz_ref)
+        st.caption(
+            f"🕒 Now in **{_tz_ref}**: {_clock:%H:%M} on {_clock:%Y-%m-%d}"
+            + ("  — the zone of the place you picked." if st.session_state.get("nm_tz")
+               else "  — your own timezone. Pick a place above to use its clock instead.")
+        )
         st.caption(
             f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
             f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "
-            f"forecast to today +15. Timezone is resolved automatically "
-            f"from the coordinates."
+            f"forecast to today +15."
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -523,9 +561,27 @@ with right:
                 disp["Value"] = disp["Value"].round(5)
                 st.dataframe(disp, use_container_width=True)
         with col_exp2:
-            with st.expander("🗺️ Location on map"):
-                st.map(pd.DataFrame({"lat": [res["lat"]], "lon": [res["lon"]]}),
-                       zoom=7)
+            with st.expander("🗺️ Location on map", expanded=False):
+                _zoom_label = st.radio(
+                    "Zoom", ["Field", "Town", "Region"], index=1,
+                    horizontal=True, key="nm_map_zoom",
+                    help="How closely to frame the predicted point.",
+                )
+                _zoom = {"Field": 14, "Town": 11, "Region": 7}[_zoom_label]
+                st.map(
+                    pd.DataFrame({"lat": [res["lat"]], "lon": [res["lon"]]}),
+                    latitude="lat", longitude="lon",
+                    size=({"Field": 12, "Town": 90, "Region": 700})[_zoom_label],
+                    color="#2ecc71", zoom=_zoom,
+                )
+                _where = st.session_state.get("nm_place_applied")
+                st.caption(
+                    ("📍 " + _where + " — " if _where else "📍 ")
+                    + f"**{res['lat']:.4f}°N, {res['lon']:.4f}°E** · "
+                    f"{res['alt']:.0f} m · `{res['tz']}`"
+                )
+                st.caption(f"Nearest training station: **{res.get('nearest', '—')}**, "
+                           f"{res.get('distance_km', float('nan')):,.0f} km away.")
 
         # ── Export ────────────────────────────────────────────────────────────
         with st.expander("⬇ Export this prediction"):
