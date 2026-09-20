@@ -13,9 +13,11 @@ coordinates, the altitude and the timezone from the match they pick.
     local_now(tz) / local_hour   → the current wall time there
     place_picker(...)            → the Streamlit widget both pages use
 
-One widget. Typing a place and pressing Enter runs a search; the matches fill
-the same dropdown, and choosing one fills the coordinate fields. A single match
-is applied immediately.
+One widget, live. Matches appear while the visitor types — each keystroke,
+after a 250 ms pause, queries the geocoder and refreshes the dropdown; there is
+nothing to press. Choosing a match fills the coordinates, altitude, timezone
+and clock. If the searchbox component is missing the picker falls back to a
+plain selectbox that needs Enter, so the page still works.
 
 Accuracy. Coordinates come from Open-Meteo's geocoding service, built on the
 GeoNames database: each hit is that settlement's official centroid, with its
@@ -37,6 +39,16 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from . import weather as W
+
+try:
+    # Live type-ahead needs a component: Streamlit's own text_input and
+    # selectbox only rerun on Enter or blur, and selectbox filters just the
+    # options already loaded, so neither can query as the visitor types.
+    from streamlit_searchbox import st_searchbox
+    HAS_SEARCHBOX = True
+except ImportError:                                  # pragma: no cover
+    st_searchbox = None
+    HAS_SEARCHBOX = False
 
 __all__ = ["search", "reverse", "identify", "reference_timezone", "local_now",
            "local_hour", "local_clock", "interpret", "place_picker", "KNOWN_SITES"]
@@ -267,8 +279,12 @@ def place_picker(
     if opts_key not in st.session_state:
         st.session_state[opts_key] = [default] if default else []
         if default:
-            st.session_state[sel_key] = _label(default)
             st.session_state[f"{key}_chosen"] = default
+            if not HAS_SEARCHBOX:
+                # Only the fallback selectbox keeps its value under this key.
+                # st_searchbox stores a dict of its own there and chokes on a
+                # plain string ("string indices must be integers").
+                st.session_state[sel_key] = _label(default)
 
     places: list[dict] = st.session_state.get(opts_key, [])
 
@@ -304,19 +320,44 @@ def place_picker(
         if action == "single":
             _apply(payload[0])
 
-    st.selectbox(
-        label,
-        options=[_label(p) for p in places],
-        index=None,
-        key=sel_key,
-        accept_new_options=True,
-        filter_mode="contains",
-        placeholder="Type a place and press Enter…",
-        on_change=_on_change,
-        help="Type a town or region and press Enter; the matches appear in this "
-             "same list. Coordinates, altitude and timezone come from the "
-             "GeoNames database via Open-Meteo.",
-    )
+    _help = ("Start typing; matches appear as you go. Coordinates, altitude and "
+             "timezone come from the GeoNames database via Open-Meteo.")
+
+    if HAS_SEARCHBOX:
+        def _suggest(term: str) -> list[tuple[str, dict]]:
+            """Called on each keystroke, after the debounce."""
+            return [(_label(p), p) for p in search(term)]
+
+        picked = st_searchbox(
+            _suggest,
+            key=sel_key,
+            label=label,
+            placeholder="Start typing a place…",
+            default_options=[(_label(default), default)] if default else None,
+            default=default,
+            debounce=250,               # ms of quiet before a lookup is sent
+            rerun_on_update=True,
+            help=_help,
+        )
+        if isinstance(picked, dict) and picked.get("display") != st.session_state.get(f"{key}_applied"):
+            _apply(picked)
+            # the pages read the coordinates at the top of the script, so a
+            # rerun keeps the caption and the clock in step with the new point
+            st.rerun()
+    else:                                            # pragma: no cover
+        # Fallback: one selectbox that doubles as a search box. Needs Enter,
+        # but keeps the page working if the component is unavailable.
+        st.selectbox(
+            label,
+            options=[_label(p) for p in places],
+            index=None,
+            key=sel_key,
+            accept_new_options=True,
+            filter_mode="contains",
+            placeholder="Type a place and press Enter…",
+            on_change=_on_change,
+            help=_help,
+        )
 
     note = st.session_state.get(note_key)
     if note:

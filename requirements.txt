@@ -26,3 +26,8 @@ pytz
 # pyarrow is already a Streamlit dependency; openpyxl adds .xlsx.
 openpyxl
 pyarrow
+
+# Live type-ahead in the place picker (webapp/core/places.py). Streamlit's own
+# text_input and selectbox only rerun on Enter or blur, so neither can query
+# the geocoder while the visitor is still typing.
+streamlit-searchbox
