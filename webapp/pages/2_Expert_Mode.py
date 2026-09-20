@@ -337,8 +337,7 @@ with left:
         dt_sel = datetime.combine(sel_date, sel_time)
         _clock = local_now(st.session_state.e_tz)
         st.caption(f"🕒 Now in **{st.session_state.e_tz}**: "
-                   f"{_clock:%H:%M} on {_clock:%Y-%m-%d}  ·  "
-                   f"auto-fetch uses the **{sel_time:%H}:00** reading.")
+                   f"{_clock:%H:%M} on {_clock:%Y-%m-%d}")
         st.caption(
             f"🌦️ Auto-fetch covers **{_win.min_date:%Y-%m-%d} → "
             f"{_win.max_date:%Y-%m-%d}**. With readings entered by hand the "

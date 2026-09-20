@@ -248,7 +248,6 @@ with left:
             + ("  — the zone of the place you picked." if st.session_state.get("nm_tz")
                else "  — your own timezone. Pick a place above to use its clock instead.")
         )
-        st.caption(f"⏱ Weather is hourly, so the **{sel_time:%H}:00** reading is used.")
         st.caption(
             f"📅 Weather available **{win.min_date:%Y-%m-%d} → "
             f"{win.max_date:%Y-%m-%d}** — ERA5 archive up to yesterday, "
