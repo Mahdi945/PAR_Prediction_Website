@@ -151,16 +151,29 @@ _PATHS = ["/", "/Normal_Mode", "/Expert_Mode", "/Dataset_Upload"]
 _SET_THEME_JS = """
 <script>
 (function () {
-  const doc = window.parent.document;
   const store = window.parent.localStorage;
   const want = %s;
   const paths = %s;
   const here = window.parent.location.pathname;
   const keyFor = p => "stActiveTheme-" + p + "-v2";
+
+  // Streamlit reads this entry with JSON.parse on boot, so it has to hold a
+  // JSON document: the six characters "Dark", quotes included. Writing the
+  // bare word threw an uncaught SyntaxError inside Streamlit's own bundle,
+  // the app never rendered, and because the value persisted every reload
+  // failed the same way - a spinner that could only be cleared by hand.
+  const encoded = JSON.stringify(want);
+
   let changed = false;
   for (const p of paths.concat([here])) {
     const k = keyFor(p);
-    if (store.getItem(k) !== want) { store.setItem(k, want); changed = true; }
+    const current = store.getItem(k);
+    // Also repair anything unparseable left behind by an earlier version.
+    let broken = false;
+    if (current !== null) {
+      try { JSON.parse(current); } catch (e) { broken = true; }
+    }
+    if (current !== encoded || broken) { store.setItem(k, encoded); changed = true; }
   }
   if (changed) { window.parent.location.reload(); }
 })();
