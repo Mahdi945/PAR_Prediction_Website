@@ -25,6 +25,7 @@ from core.cache    import fetch_weather, DateOutOfRangeError, WeatherServiceErro
 from core.domain   import check_location, check_features, describe
 from core.export   import download_bar, to_json_bytes, file_name
 from core import theme
+from core.html import block
 
 # The palette for whichever appearance the visitor has chosen. Charts read
 # it directly; the CSS below reads it through the var(--pp-*) variables.
@@ -505,7 +506,7 @@ with right:
                 f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
                 f'typical error ± {_mae:.0f} µmol/m²/s</div>'
             ) if is_day else ""
-            st.markdown(f"""
+            st.markdown(block(f"""
             <div class="result-card" style="background:var(--pp-card-green);
                  border-color:{col_ml}">
                 <div class="cap-lbl">🤖 ML Model (XGBoost)</div>
@@ -513,7 +514,7 @@ with right:
                 <div class="unit">µmol / m² / s</div>
                 {_err_line}
             </div>
-            """, unsafe_allow_html=True)
+            """), unsafe_allow_html=True)
 
         with c2:
             st.markdown(f"""

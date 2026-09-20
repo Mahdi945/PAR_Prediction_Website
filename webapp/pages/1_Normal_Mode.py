@@ -24,6 +24,7 @@ from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe
 from core.export    import download_bar, to_json_bytes, file_name
 from core import theme
+from core.html import block
 
 # The palette for whichever appearance the visitor has chosen. Charts read
 # it directly; the CSS below reads it through the var(--pp-*) variables.
@@ -453,7 +454,7 @@ with right:
                 f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
                 f'typical error ± {_mae:.0f} µmol/m²/s</div>'
             ) if is_day else ""
-            st.markdown(f"""
+            st.markdown(block(f"""
             <div class="par-card" style="border-color:{color}">
                 <div style="font-size:.72rem;color:var(--pp-muted);text-transform:uppercase;
                             letter-spacing:1px;margin-bottom:.4rem">
@@ -475,11 +476,11 @@ with right:
                           {float(ft["airmass"].iloc[0]):.2f}</td></tr>
                 </table>
             </div>
-            """, unsafe_allow_html=True)
+            """), unsafe_allow_html=True)
 
         with c_dli:
             dli = dli_for_day(fc)
-            st.markdown(f"""
+            st.markdown(block(f"""
             <div class="dli-card">
                 <div class="dli-lbl">Daily Light Integral — {res['dt']:%Y-%m-%d}</div>
                 <div class="dli-val">{dli}
@@ -517,7 +518,7 @@ with right:
                   </tr>
                 </table>
             </div>
-            """, unsafe_allow_html=True)
+            """), unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
