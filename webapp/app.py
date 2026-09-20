@@ -34,6 +34,12 @@ st.markdown("""
     margin-bottom: .4rem;
 }
 
+/* Hide Streamlit's own toolbar actions. config.toml already sets
+   toolbarMode = "minimal"; this covers the case where the host renders the
+   row anyway. The running/stopped status indicator is left alone. */
+[data-testid="stToolbarActions"] { display: none !important; }
+[data-testid="stMainMenu"]       { display: none !important; }
+
 /* Remove default top padding so logo sits flush at top */
 [data-testid="stSidebarNav"] {
     padding-top: 0 !important;
@@ -59,6 +65,7 @@ pg = st.navigation([
     st.Page("pages/1_Normal_Mode.py",   title="Normal Mode",    icon="🌱"),
     st.Page("pages/2_Expert_Mode.py",   title="Expert Mode",    icon="⚙️"),
     st.Page("pages/3_Dataset_Upload.py", title="Dataset Upload", icon="📊"),
+    st.Page("pages/4_Documentation.py", title="Documentation",  icon="📖"),
 ])
 
 # ── Appearance ────────────────────────────────────────────────────────────────

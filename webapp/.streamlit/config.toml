@@ -44,7 +44,9 @@ headless          = true
 gatherUsageStats  = false
 
 [client]
-# Was "minimal", which hid the whole toolbar - including Settings, where
-# Streamlit's own light/dark switch lives. "auto" keeps it reachable for
-# visitors; the app also offers its own switch in the sidebar.
-toolbarMode       = "auto"
+# "minimal" shows the toolbar only when it has something to say (a running or
+# stopped script). No Deploy button, no three-dot menu, so a visitor sees the
+# app rather than its scaffolding. This was briefly "auto" so that Streamlit's
+# own Settings > Appearance switch was reachable; the app has its own switch in
+# the sidebar now, so the menu is not needed.
+toolbarMode       = "minimal"

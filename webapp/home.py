@@ -288,6 +288,24 @@ with col_c:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# ── Documentation ─────────────────────────────────────────────────────────────
+# Directly under the three modes: the moment someone wonders which one they
+# want is the moment the manual is worth offering.
+_, _doc_col, _ = st.columns([1, 2.2, 1])
+with _doc_col:
+    st.markdown(
+        '<div style="text-align:center;color:var(--pp-muted);font-size:.92rem;'
+        'margin-bottom:.35rem">New here, or unsure which mode fits? '
+        'The documentation explains every part of the site &mdash; '
+        'in English and German.</div>',
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/4_Documentation.py",
+                 label="Open the documentation  ·  Dokumentation öffnen",
+                 icon="📖", use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MODE COMPARISON TABLE
 # ═══════════════════════════════════════════════════════════════════════════════
