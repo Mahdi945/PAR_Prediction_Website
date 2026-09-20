@@ -34,7 +34,18 @@ st.markdown("""
 .block-container { padding-top: 1.5rem; }
 
 /* Hero */
-.hero-title { margin: 0; line-height: 0; }
+/* Streamlit turns an <h1> in markdown into a heading COMPONENT: it wraps it in
+   [data-testid="stHeadingWithActionElements"] and injects a hidden anchor link
+   inside. Measured on the running app, that left the h1 281 px tall around a
+   193 px image - 20 px padding above, 16 px below, and a 52.8 px empty line box
+   for the anchor. Its styles outrank a plain .hero-title, hence !important:
+   font-size 0 collapses the anchor's line box, the rest removes the padding. */
+h1.hero-title {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
 /* The name is drawn in the artwork, so the heading holds the image instead of
    type. It stays an <h1> so the page keeps a real heading for screen readers
    and for the document outline; the alt text carries the name. */
@@ -46,9 +57,12 @@ st.markdown("""
     display: block; margin: 0 auto;
     width: 100%; max-width: 210px; height: auto;
 }
-.hero-sub {
-    font-size: 1.1rem; color: #8892b0;
-    margin: 0.35rem 0 0.2rem 0; line-height: 1.6;
+/* Streamlit's own [data-testid="stMarkdownContainer"] p rule zeroes the top
+   margin, so the gap under the logo has to be stated here or it collapses to
+   nothing. This one number is the whole spacing between logo and tagline. */
+p.hero-sub {
+    font-size: 1.1rem; color: #8892b0; line-height: 1.6;
+    margin: 0.85rem 0 0.2rem 0 !important;
 }
 
 /* Mode cards */
