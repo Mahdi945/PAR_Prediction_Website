@@ -423,10 +423,11 @@ with right:
         elif res["horizon"] == 0:
             st.caption(f"🛰️ {res['source_label']} · {_matched}")
         else:
-            st.info(
-                f"🔮 **{res['source_label']}** — forecast uncertainty grows "
-                f"with the horizon. {_matched}"
-            )
+            # No claim about the horizon here any more: the card states the
+            # measured ensemble spread, and that generalisation is wrong about
+            # any particular day anyway - a clear high-pressure day is
+            # predictable a week out, a convective one is not by lunchtime.
+            st.info(f"🔮 **{res['source_label']}** · {_matched}")
 
         if res["missing"]:
             st.warning(
@@ -488,11 +489,14 @@ with right:
             _base = mccree_estimate(float(ft["GHI_RC_01"].iloc[0]))
             _diff = par - _base
             _base_line = (
-                f'<div style="font-size:.8rem;color:var(--pp-muted);margin-top:.15rem" '
+                f'<div style="font-size:.88rem;color:var(--pp-muted);margin-top:.5rem" '
                 f'title="The parameter-free physics formula the model is measured against: '
                 f'PAR = {MCCREE_FACTOR} x GHI. It has nothing fitted to this data.">'
-                f'physics baseline {_base:,.0f} µmol/m²/s '
-                f'({_diff:+,.0f} vs the model)</div>'
+                f'<span style="color:var(--pp-text);font-weight:600">physics baseline</span> '
+                f'<strong style="color:var(--pp-text-strong)">{_base:,.0f}</strong> '
+                f'µmol/m²/s · '
+                f'<strong style="color:var(--pp-text-strong)">{_diff:+,.0f}</strong> '
+                f'vs the model</div>'
             ) if is_day else ""
             st.markdown(block(f"""
             <div class="par-card" style="border-color:{color}">
@@ -502,8 +506,8 @@ with right:
                 </div>
                 <div class="par-big" style="color:{color}">{par:.1f}</div>
                 <div class="par-unit">µmol / m² / s</div>
-                {_err_line}
                 {_base_line}
+                {_err_line}
                 <div class="par-cat" style="color:{color}">{emoji} {label}</div>
                 <hr style="border-color:var(--pp-border);margin:.8rem 0">
                 <table style="width:100%;font-size:.8rem;color:var(--pp-muted)">
