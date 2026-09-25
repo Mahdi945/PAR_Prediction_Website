@@ -5,6 +5,8 @@ training-faithful matrix preparation (median imputation, 1st/99th-percentile
 clipping of the noisy channels only), batch = row-by-row, and the model card
 the pages quote their error bars from.
 """
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -138,3 +140,43 @@ def test_model_card_fallback_when_metrics_file_is_absent(tmp_path, monkeypatch):
     assert card["source"] == "fallback"
     assert card["test_mae"] == pytest.approx(29.43, abs=0.01)
     monkeypatch.setattr(P, "_model_card", None)      # do not leak the fallback into other tests
+
+
+# ── Ensemble spread → PAR band ────────────────────────────────────────────────
+# Each member is a different guess at the irradiance, so each has to go through
+# feature engineering in full: clearness_kt and dni are DERIVED from GHI, and
+# swapping GHI alone would leave them describing a sky no member predicted.
+
+_WHEN = datetime(2025, 6, 15, 12, 0)
+_WEATHER = {"GHI_RC_01": 600.0, "Temp_WS": 22.0, "RH_WS": 55.0, "DWP_WS": 12.0,
+            "WS_WS": 2.0, "PREC_INT_WS": 0.0, "PREC_DIFF_WS": 0.0, "WD_WS": 180.0}
+
+
+def _spread(members):
+    return P.par_spread(members, lat=51.6872, lon=14.4143, alt=84.0,
+                        when=_WHEN, weather=_WEATHER, tz_str="Europe/Berlin")
+
+
+@needs_model
+def test_par_spread_widens_when_the_members_disagree():
+    tight = _spread([595.0, 598.0, 600.0, 602.0, 605.0])
+    wide = _spread([300.0, 450.0, 600.0, 750.0, 900.0])
+    assert tight and wide
+    assert wide["sd"] > tight["sd"] * 3
+    assert wide["high"] - wide["low"] > tight["high"] - tight["low"]
+
+
+@needs_model
+def test_par_spread_recomputes_the_ghi_derived_features():
+    """A member at half the irradiance must move PAR, not just clearness_kt."""
+    lo = _spread([300.0] * 5)
+    hi = _spread([600.0] * 5)
+    assert lo and hi
+    assert hi["median"] > lo["median"] * 1.5
+
+
+@needs_model
+def test_par_spread_needs_at_least_two_members():
+    assert _spread([600.0]) is None
+    assert _spread([]) is None
+    assert _spread([None, float("nan")]) is None

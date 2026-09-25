@@ -440,3 +440,63 @@ def mccree_estimate(ghi: float) -> float:
     pipeline cannot drift apart — see tests/test_mccree_factor.py.
     """
     return max(0.0, ghi * MCCREE_FACTOR)
+
+
+def par_spread(
+    members_ghi,
+    *,
+    lat: float,
+    lon: float,
+    alt: float,
+    when,
+    weather: dict,
+    tz_str: str = "UTC",
+) -> dict | None:
+    """Turn a spread of forecast GHI values into a spread of PAR predictions.
+
+    Each ensemble member is a different guess at the irradiance, so each one has
+    to go through feature engineering in full — ``clearness_kt`` and ``dni`` are
+    *derived* from GHI, and swapping GHI alone would leave them describing a sky
+    that no member predicted. Everything else (place, hour, temperature, wind)
+    is held fixed: this measures the uncertainty the irradiance forecast carries,
+    not the uncertainty of the whole atmosphere.
+
+    Returns percentiles rather than min/max. With 40 members the extremes are
+    two single runs and move a lot between calls; the 10th–90th percentile is
+    the range the members actually agree on.
+
+    ``None`` when there is nothing usable, which the caller treats as "show the
+    prediction without a band".
+    """
+    from .features import compute_features_batch
+
+    ghi = np.asarray([g for g in members_ghi if g is not None], dtype="float64")
+    ghi = ghi[np.isfinite(ghi)]
+    if ghi.size < 2:
+        return None
+
+    row = {k: v for k, v in weather.items() if not k.startswith("_")}
+    frame = pd.DataFrame({
+        "timestamp": [when] * ghi.size,
+        "lat": lat, "lon": lon, "alt": alt,
+        **{k: v for k, v in row.items() if k != "GHI_RC_01"},
+    })
+    frame["GHI_RC_01"] = ghi
+
+    feats, is_day = compute_features_batch(frame, tz_str)
+    if not is_day.any():
+        return None
+
+    par = predict_par_batch(feats[is_day])
+    par = par[np.isfinite(par)]
+    if par.size < 2:
+        return None
+
+    return {
+        "n":      int(par.size),
+        "low":    float(np.percentile(par, 10)),
+        "median": float(np.percentile(par, 50)),
+        "high":   float(np.percentile(par, 90)),
+        "sd":     float(np.std(par)),
+        "ghi_sd": float(np.std(ghi)),
+    }

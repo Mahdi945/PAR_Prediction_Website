@@ -177,7 +177,12 @@ def describe(location: LocationCheck | None,
     return notes
 
 
-def error_note(mae: float, horizon_days: int | None = None) -> str:
+def error_note(
+    mae: float,
+    horizon_days: int | None = None,
+    forecast_sd: float | None = None,
+    members: int | None = None,
+) -> str:
     """How far the model's error figure actually reaches, in words.
 
     The MAE is what the model gets wrong *given the weather it is handed*. In
@@ -187,10 +192,20 @@ def error_note(mae: float, horizon_days: int | None = None) -> str:
     two — printing a bare "typical error ± 29" for a request 15 days out would
     claim an accuracy no part of the system has.
 
+    When an ensemble is available, ``forecast_sd`` replaces the vague warning
+    with the measured spread across ``members``. That is the better answer, and
+    not only because it is a number: the spread tracks how cloudy and unsettled
+    the sky is, not how far ahead you asked. A clear high-pressure day is
+    predictable a week out; a convective day is uncertain by lunchtime. The
+    sentence about the horizon is an average over many days and can be badly
+    wrong about any particular one, so it is only used as a fallback.
+
     ``horizon_days`` is 0 for today, ``None`` for a past date or for readings
     typed in by hand, and positive for a forecast.
     """
     note = f"model error ± {mae:.0f} µmol/m²/s for the weather shown"
-    if horizon_days and horizon_days > 0:
+    if forecast_sd is not None:
+        note += f" · forecast ensemble spread ± {forecast_sd:.0f} (n = {members or 0})"
+    elif horizon_days and horizon_days > 0:
         note += " — the forecast adds its own error on top"
     return note

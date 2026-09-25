@@ -55,6 +55,23 @@ def fetch_weather(lat: float, lon: float, dt) -> dict:
     return fn(lat, lon, when.isoformat())
 
 
+@st.cache_data(ttl=3600, show_spinner=False, max_entries=512)
+def _fetch_ensemble(lat: float, lon: float, dt_iso: str) -> dict | None:
+    return W.fetch_ensemble(lat, lon, datetime.fromisoformat(dt_iso))
+
+
+def fetch_ensemble(lat: float, lon: float, dt) -> dict | None:
+    """Cached ``core.weather.fetch_ensemble``.
+
+    Same one-hour TTL as the forecast it accompanies, and ``None`` is a valid
+    cached answer: when the ensemble has nothing for an hour it will not have
+    anything a second later either, and the page works without it.
+    """
+    when = W._normalise_dt(dt)
+    lat, lon = _coords(lat, lon)
+    return _fetch_ensemble(lat, lon, when.isoformat())
+
+
 @st.cache_data(ttl=7 * 24 * 3600, show_spinner=False, max_entries=2048)
 def geocode_city(name: str, max_results: int = 5) -> list[dict]:
     """Cached ``core.weather.geocode_city`` (returns [] on failure, like the original)."""

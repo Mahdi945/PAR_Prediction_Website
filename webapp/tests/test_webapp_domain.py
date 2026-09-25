@@ -117,3 +117,18 @@ def test_error_note_is_silent_for_measured_and_past_days():
     """horizon 0 is today, None is a past date or hand-entered readings."""
     for horizon in (0, None):
         assert "forecast" not in DM.error_note(29.4, horizon), horizon
+
+
+def test_error_note_prefers_a_measured_spread_to_the_vague_sentence():
+    """A number beats a warning: spread tracks how unsettled the sky is, not
+    how far ahead you asked, so the horizon sentence is only the fallback."""
+    note = DM.error_note(29.4, horizon_days=1, forecast_sd=25.8, members=40)
+    assert "forecast ensemble spread" in note
+    assert "26" in note and "n = 40" in note
+    assert "adds its own error on top" not in note
+
+
+def test_error_note_falls_back_when_no_ensemble_was_available():
+    note = DM.error_note(29.4, horizon_days=7, forecast_sd=None)
+    assert "the forecast adds its own error on top" in note
+    assert "ensemble" not in note

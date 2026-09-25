@@ -35,6 +35,12 @@ import pandas as pd
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 _WEATHER_URL  = _FORECAST_URL   # historical alias, kept bound for other callers
 _ARCHIVE_URL  = "https://archive-api.open-meteo.com/v1/archive"
+_ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
+# Tried in order. ICON is the better forecast over Europe and carries more
+# members, but its ensemble stops at about 7 days; GFS reaches 15, which is
+# exactly the window this app offers. Without the second one the error bar
+# would quietly vanish for half the range.
+_ENSEMBLE_MODELS = ("icon_seamless", "gfs_seamless")
 _GEO_URL      = "https://geocoding-api.open-meteo.com/v1/search"
 _TIMEOUT      = 12  # seconds per attempt
 _RETRIES      = 3   # transient timeouts are common on shared hosting
@@ -379,6 +385,75 @@ def fetch_forecast(
 
 
 fetch_day_series = fetch_forecast
+
+
+def fetch_ensemble(lat: float, lon: float, dt) -> dict | None:
+    """The spread of GHI across ensemble members for one hour.
+
+    A deterministic forecast is the model run once. An ensemble runs it many
+    times from slightly different starting states; where the members agree the
+    atmosphere is predictable, where they scatter it is not. That scatter is a
+    measurement of the forecast's own uncertainty, from the same provider and
+    at no extra cost.
+
+    Returns ``{"members": [...GHI...], "n": int, "hour": datetime}`` or ``None``
+    when the ensemble has nothing for this hour — a past date, a location it
+    does not cover, or the service being down. The caller shows a plain
+    prediction in that case: an unavailable error bar must never cost the user
+    their prediction.
+
+    Note what this does and does not measure. It is the uncertainty in the
+    *weather input*, not in the model, and the two add on top of each other.
+    Ensembles also tend to be under-dispersive, so treat the spread as a floor
+    rather than a full account of what could happen.
+    """
+    when = _normalise_dt(dt)
+    day = when.date()
+
+    if resolve_source(day) != "forecast":
+        return None                      # the past is not forecast; it happened
+
+    stamp = when.strftime(_TIME_FMT)
+
+    for model in _ENSEMBLE_MODELS:
+        try:
+            data = _get_json(
+                _ENSEMBLE_URL,
+                {
+                    "latitude":  round(lat, 4),
+                    "longitude": round(lon, 4),
+                    "hourly":    "shortwave_radiation",
+                    "models":     model,
+                    "timezone":   "auto",
+                    "start_date": day.isoformat(),
+                    "end_date":   day.isoformat(),
+                },
+                what="Ensemble forecast",
+                retries=1,           # a missing error bar is not worth a retry storm
+            )
+        except (WeatherServiceError, requests.RequestException):
+            continue
+
+        hourly = data.get("hourly") or {}
+        times = hourly.get("time") or []
+        if stamp not in times:
+            continue
+        i = times.index(stamp)
+
+        # Every member arrives as its own column: shortwave_radiation,
+        # shortwave_radiation_member01, _member02 ...
+        members = [
+            float(hourly[k][i])
+            for k in hourly
+            if k.startswith("shortwave_radiation")
+            and i < len(hourly[k])
+            and hourly[k][i] is not None
+        ]
+        if len(members) >= 2:
+            return {"members": members, "n": len(members),
+                    "hour": when, "model": model}
+
+    return None
 
 
 def geocode_city(name: str, max_results: int = 5) -> list[dict]:

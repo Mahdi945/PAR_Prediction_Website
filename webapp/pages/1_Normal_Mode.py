@@ -17,9 +17,11 @@ import plotly.graph_objects as go
 from datetime import datetime, date, time as dtime
 
 from core.weather   import available_window
-from core.cache     import fetch_weather, DateOutOfRangeError, WeatherServiceError
+from core.cache     import (fetch_weather, fetch_ensemble,
+                            DateOutOfRangeError, WeatherServiceError)
 from core.features  import compute_features
-from core.predict   import predict_par, model_status, model_card
+from core.predict   import (predict_par, par_spread, mccree_estimate,
+                            model_status, model_card)
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
 from core.domain    import check_location, check_features, describe, error_note
 from core.export    import download_bar, to_json_bytes, file_name
@@ -319,6 +321,23 @@ if predict_btn:
                     st.error(f"❌ Prediction error: {e}")
                 st.stop()
 
+        # How much does the irradiance forecast itself disagree with itself?
+        # Only forecasts have an ensemble, and only daylight has a PAR worth
+        # bounding. Any failure here leaves _spread as None and costs the user
+        # nothing: an unavailable error bar must not cost them their prediction.
+        _spread = None
+        if is_day and weather["_horizon_days"] and weather["_horizon_days"] > 0:
+            with st.spinner("🎲 Measuring forecast spread…"):
+                try:
+                    _ens = fetch_ensemble(lat, lon, dt_sel)
+                    if _ens:
+                        _spread = par_spread(
+                            _ens["members"], lat=lat, lon=lon, alt=alt,
+                            when=dt_sel, weather=weather, tz_str=tz_str,
+                        )
+                except Exception:                      # noqa: BLE001 - never fatal
+                    _spread = None
+
     progress.empty()
 
     # Has the model seen conditions like these? Two Brandenburg stations, 2024–2025.
@@ -334,6 +353,7 @@ if predict_btn:
         "horizon":      weather["_horizon_days"],
         "matched_time": weather["_matched_time"],
         "missing":      weather["_missing"],
+        "spread":       _spread,
         "domain":       _domain,
         "nearest":      _loc_check.nearest,
         "distance_km":  _loc_check.distance_km,
@@ -449,14 +469,30 @@ with right:
             elev = float(ft["elevation"].iloc[0])
             _mae   = _card["test_mae"]
             _ntest = _card["n_test"]
-            # error_note() scopes this to the weather shown, and says so when a
-            # forecast's own error is riding on top of the model's.
+            # error_note() scopes this to the weather shown, and states the
+            # ensemble spread when one was available instead of the vague
+            # sentence about the horizon.
+            _sp = res.get("spread") or {}
             _err_line = (
                 f'<div style="font-size:.8rem;color:var(--pp-muted);margin-top:.35rem" '
                 f'title="Mean absolute error on {_ntest:,} held-out test rows from days the '
-                f'model never saw, measured with the recorded weather as input. It does not '
-                f'include any error in the weather data itself.">'
-                f'{error_note(_mae, res["horizon"])}</div>'
+                f'model never saw, measured with the recorded weather as input. The forecast '
+                f'spread is the standard deviation of the prediction across the ensemble '
+                f'members, which is the uncertainty in the weather, not in the model.">'
+                f'{error_note(_mae, res["horizon"], _sp.get("sd"), _sp.get("n"))}</div>'
+            ) if is_day else ""
+
+            # The project's whole claim is that the model beats PAR = 2.06 x GHI,
+            # so the visitor should be able to see both numbers at once rather
+            # than take the comparison on trust.
+            _base = mccree_estimate(float(ft["GHI_RC_01"].iloc[0]))
+            _diff = par - _base
+            _base_line = (
+                f'<div style="font-size:.8rem;color:var(--pp-muted);margin-top:.15rem" '
+                f'title="The parameter-free physics formula the model is measured against: '
+                f'PAR = {MCCREE_FACTOR} x GHI. It has nothing fitted to this data.">'
+                f'physics baseline {_base:,.0f} µmol/m²/s '
+                f'({_diff:+,.0f} vs the model)</div>'
             ) if is_day else ""
             st.markdown(block(f"""
             <div class="par-card" style="border-color:{color}">
@@ -467,6 +503,7 @@ with right:
                 <div class="par-big" style="color:{color}">{par:.1f}</div>
                 <div class="par-unit">µmol / m² / s</div>
                 {_err_line}
+                {_base_line}
                 <div class="par-cat" style="color:{color}">{emoji} {label}</div>
                 <hr style="border-color:var(--pp-border);margin:.8rem 0">
                 <table style="width:100%;font-size:.8rem;color:var(--pp-muted)">
