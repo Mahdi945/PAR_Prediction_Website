@@ -503,8 +503,9 @@ with right:
             _ntest = _card["n_test"]
             _err_line = (
                 f'<div style="color:var(--pp-muted);font-size:.75rem;margin-top:.4rem" '
-                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
-                f'typical error ± {_mae:.0f} µmol/m²/s</div>'
+                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the '
+                f'model never saw. It covers the model only, not any error in the readings.">'
+                f'model error ± {_mae:.0f} µmol/m²/s for the readings shown</div>'
             ) if is_day else ""
             st.markdown(block(f"""
             <div class="result-card" style="background:var(--pp-card-green);

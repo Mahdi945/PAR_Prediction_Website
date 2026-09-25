@@ -31,7 +31,7 @@ webapp/
 │   ├── 2_Expert_Mode.py       ← Manual sensor input → prediction vs McCree
 │   └── 3_Dataset_Upload.py    ← Whole files → cleaned, scored, exported
 ├── core/
-│   ├── constants.py           ← McCree factor (mirror of src/constants.py)
+│   ├── constants.py           ← McCree factor — the reference copy the tests bind to
 │   ├── weather.py             ← Open-Meteo client: archive / forecast / geocoding
 │   ├── cache.py               ← Streamlit-cached front for weather.py
 │   ├── features.py            ← Feature engineering (single row + vectorised batch)

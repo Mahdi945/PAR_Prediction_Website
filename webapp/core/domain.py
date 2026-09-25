@@ -175,3 +175,22 @@ def describe(location: LocationCheck | None,
             f"{_fmt(fc.low, unit)} – {_fmt(fc.high, unit)}{tail}."
         )
     return notes
+
+
+def error_note(mae: float, horizon_days: int | None = None) -> str:
+    """How far the model's error figure actually reaches, in words.
+
+    The MAE is what the model gets wrong *given the weather it is handed*. In
+    Normal Mode that weather is Open-Meteo's rather than a station reading, and
+    PAR follows GHI almost one for one, so the input's own error lands on top of
+    the model's. Past a few days ahead the forecast term is the larger of the
+    two — printing a bare "typical error ± 29" for a request 15 days out would
+    claim an accuracy no part of the system has.
+
+    ``horizon_days`` is 0 for today, ``None`` for a past date or for readings
+    typed in by hand, and positive for a forecast.
+    """
+    note = f"model error ± {mae:.0f} µmol/m²/s for the weather shown"
+    if horizon_days and horizon_days > 0:
+        note += " — the forecast adds its own error on top"
+    return note

@@ -21,7 +21,7 @@ from core.cache     import fetch_weather, DateOutOfRangeError, WeatherServiceErr
 from core.features  import compute_features
 from core.predict   import predict_par, model_status, model_card
 from core.constants import MCCREE_FACTOR, SECONDS_PER_HOUR, MICROMOL_PER_MOL
-from core.domain    import check_location, check_features, describe
+from core.domain    import check_location, check_features, describe, error_note
 from core.export    import download_bar, to_json_bytes, file_name
 from core import theme
 from core.html import block
@@ -449,10 +449,14 @@ with right:
             elev = float(ft["elevation"].iloc[0])
             _mae   = _card["test_mae"]
             _ntest = _card["n_test"]
+            # error_note() scopes this to the weather shown, and says so when a
+            # forecast's own error is riding on top of the model's.
             _err_line = (
                 f'<div style="font-size:.8rem;color:var(--pp-muted);margin-top:.35rem" '
-                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the model never saw">'
-                f'typical error ± {_mae:.0f} µmol/m²/s</div>'
+                f'title="Mean absolute error on {_ntest:,} held-out test rows from days the '
+                f'model never saw, measured with the recorded weather as input. It does not '
+                f'include any error in the weather data itself.">'
+                f'{error_note(_mae, res["horizon"])}</div>'
             ) if is_day else ""
             st.markdown(block(f"""
             <div class="par-card" style="border-color:{color}">
